@@ -85,10 +85,18 @@ class CustomerService {
     /**
      * Get customer ledger (khata) entries
      */
-    async getLedger(customerId, query = {}) {
+    async getLedger(customerId, query = {}, storeId = null) {
         const { skip, limit, page } = parsePagination(query);
 
-        const where = { customerId };
+        const where = {};
+
+        // If customerId is 'all', target all customers (optionally in a store)
+        if (customerId !== 'all') {
+            where.customerId = customerId;
+        } else if (storeId || query.storeId) {
+            where.customer = { storeId: storeId || query.storeId };
+        }
+
         if (query.type) where.type = query.type;
 
         if (query.startDate || query.endDate) {
@@ -104,6 +112,7 @@ class CustomerService {
                 take: limit,
                 orderBy: { createdAt: 'desc' },
                 include: {
+                    customer: { select: { id: true, name: true } },
                     sale: { select: { id: true, invoiceNumber: true } },
                     recordedBy: { select: { id: true, firstName: true, lastName: true } },
                 },

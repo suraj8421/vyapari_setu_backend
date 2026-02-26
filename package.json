@@ -1,5 +1,5 @@
 {
-  "name": "khata-backend",
+  "name": "vyaparisetu-backend",
   "version": "1.0.0",
   "type": "module",
   "description": "Inventory & Ledger Management System - Backend API (Prisma v7)",

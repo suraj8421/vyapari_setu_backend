@@ -1,5 +1,5 @@
 // ============================================
-// KhataBook - Express Server (Prisma v7 / ESM)
+// Vyaparisetu - Express Server (Prisma v7 / ESM)
 // ============================================
 
 import express from 'express';
@@ -20,6 +20,7 @@ import supplierRoutes from './routes/supplierRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import translateRoutes from './routes/translateRoutes.js';
+import transactionRoutes from './routes/transactionRoutes.js';
 
 const app = express();
 
@@ -56,6 +57,7 @@ app.use('/api/suppliers', supplierRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/translate', translateRoutes);
+app.use('/api/transactions', transactionRoutes);
 
 // ─── 404 Handler ─────────────────────────────
 app.use((req, res) => {
@@ -74,7 +76,7 @@ const PORT = config.port;
 app.listen(PORT, () => {
     console.log(`
 ╔══════════════════════════════════════════════╗
-║      KhataBook API Server                    ║
+║      Vyaparisetu API Server                  ║
 ║      Port: ${PORT}                              ║
 ║      Env:  ${config.nodeEnv.padEnd(17)}        ║
 ║      Prisma v7 + ESM                         ║

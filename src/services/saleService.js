@@ -7,6 +7,28 @@ import { parsePagination, generateInvoiceNumber } from '../utils/helpers.js';
 
 class SaleService {
     /**
+     * Get or create a default walk-in customer for a store
+     */
+    async getOrCreateWalkInCustomer(storeId, tx) {
+        const client = tx || prisma;
+        let walkIn = await client.customer.findFirst({
+            where: { storeId, isWalkIn: true },
+        });
+
+        if (!walkIn) {
+            walkIn = await client.customer.create({
+                data: {
+                    name: 'Walk-in Customer',
+                    phone: '0000000000',
+                    isWalkIn: true,
+                    storeId,
+                },
+            });
+        }
+        return walkIn;
+    }
+
+    /**
      * Create a new sale with automatic stock deduction
      */
     async create(data, userId) {
@@ -41,7 +63,7 @@ class SaleService {
 
                 // Calculate item totals
                 const itemSubtotal = item.unitPrice * item.quantity - (item.discount || 0);
-                const gstRate = Number(product.gstRate);
+                const gstRate = item.gstRate !== undefined ? Number(item.gstRate) : Number(product.gstRate);
                 const gstAmount = (itemSubtotal * gstRate) / 100;
                 const itemTotal = itemSubtotal + gstAmount;
 
@@ -73,18 +95,34 @@ class SaleService {
             }
 
             const totalAmount = subtotal + totalTax - (data.discount || 0);
-            const paidAmount = data.paidAmount !== undefined ? data.paidAmount : totalAmount;
+            const paidAmount = data.paidAmount !== undefined ? Number(data.paidAmount) : totalAmount;
+            const discount = Number(data.discount || 0);
+
+            // Determine Customer (Assign Walk-in if not provided)
+            let actualCustomerId = data.customerId;
+            if (!actualCustomerId) {
+                const walkIn = await this.getOrCreateWalkInCustomer(data.storeId, tx);
+                actualCustomerId = walkIn.id;
+            }
+
+            const customer = await tx.customer.findUnique({
+                where: { id: actualCustomerId },
+            });
+
+            if (!customer) {
+                throw { statusCode: 404, message: 'Customer not found' };
+            }
 
             // Create sale
             const sale = await tx.sale.create({
                 data: {
                     invoiceNumber: generateInvoiceNumber('INV'),
                     storeId: data.storeId,
-                    customerId: data.customerId || null,
+                    customerId: actualCustomerId,
                     soldById: userId,
                     subtotal,
                     taxAmount: totalTax,
-                    discount: data.discount || 0,
+                    discount,
                     totalAmount,
                     paidAmount,
                     paymentMethod: data.paymentMethod || 'CASH',
@@ -99,39 +137,53 @@ class SaleService {
                             product: { select: { id: true, name: true, sku: true } },
                         },
                     },
-                    customer: { select: { id: true, name: true } },
+                    customer: { select: { id: true, name: true, isWalkIn: true } },
                     soldBy: { select: { id: true, firstName: true, lastName: true } },
                 },
             });
 
-            // If customer exists and paid less than total, create ledger entry (credit)
-            if (data.customerId && paidAmount < totalAmount) {
-                const creditAmount = totalAmount - paidAmount;
+            // ─── LEDGER & BALANCE UPDATES ────────────────────────
+            let currentBalance = Number(customer.balance);
 
-                const customer = await tx.customer.findUnique({
-                    where: { id: data.customerId },
-                });
+            // 1. Record the full Sale amount as a CREDIT (they owe us for the invoice)
+            currentBalance += totalAmount;
 
-                const newBalance = Number(customer.balance) + creditAmount;
+            await tx.ledgerEntry.create({
+                data: {
+                    customerId: actualCustomerId,
+                    saleId: sale.id,
+                    type: 'CREDIT',
+                    amount: totalAmount,
+                    paymentMethod: 'CREDIT',
+                    description: `Invoice ${sale.invoiceNumber} (Total Amount)`,
+                    balanceAfter: currentBalance,
+                    recordedById: userId,
+                },
+            });
 
-                await tx.customer.update({
-                    where: { id: data.customerId },
-                    data: { balance: newBalance },
-                });
+            // 2. Record the payment as a DEBIT (they paid some or all)
+            if (paidAmount > 0) {
+                currentBalance -= paidAmount;
 
                 await tx.ledgerEntry.create({
                     data: {
-                        customerId: data.customerId,
+                        customerId: actualCustomerId,
                         saleId: sale.id,
-                        type: 'CREDIT',
-                        amount: creditAmount,
-                        paymentMethod: 'CREDIT',
-                        description: `Sale ${sale.invoiceNumber} - Credit`,
-                        balanceAfter: newBalance,
+                        type: 'DEBIT',
+                        amount: paidAmount,
+                        paymentMethod: data.paymentMethod || 'CASH',
+                        description: `Payment for Invoice ${sale.invoiceNumber}`,
+                        balanceAfter: currentBalance,
                         recordedById: userId,
                     },
                 });
             }
+
+            // 3. Final Balance Update
+            await tx.customer.update({
+                where: { id: actualCustomerId },
+                data: { balance: currentBalance },
+            });
 
             return sale;
         });

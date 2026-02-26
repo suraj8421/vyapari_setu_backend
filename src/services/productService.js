@@ -70,6 +70,7 @@ class ProductService {
                             id: true,
                             quantity: true,
                             minStockLevel: true,
+                            maxStockLevel: true,
                             batchNumber: true,
                             expiryDate: true,
                             location: true,
@@ -109,12 +110,26 @@ class ProductService {
      * Update product
      */
     async update(id, data) {
-        return prisma.product.update({
-            where: { id },
-            data,
-            include: {
-                inventory: true,
-            },
+        const { initialStock, minStockLevel, maxStockLevel, batchNumber, expiryDate, location, ...productData } = data;
+
+        return prisma.$transaction(async (tx) => {
+            const product = await tx.product.update({
+                where: { id },
+                data: productData,
+                include: {
+                    inventory: true,
+                },
+            });
+
+            // Update minStockLevel if provided
+            if (minStockLevel !== undefined) {
+                await tx.inventory.updateMany({
+                    where: { productId: id },
+                    data: { minStockLevel: Number(minStockLevel) },
+                });
+            }
+
+            return product;
         });
     }
 
@@ -148,7 +163,7 @@ class ProductService {
     }
 
     /**
-     * Get low stock products
+     * Get low stock products with reorder suggestions
      */
     async getLowStock(storeId = null) {
         const where = {
@@ -157,13 +172,10 @@ class ProductService {
         if (storeId) where.storeId = storeId;
 
         const lowStockItems = await prisma.inventory.findMany({
-            where: {
-                ...where,
-                quantity: { lte: prisma.inventory.fields?.minStockLevel },
-            },
+            where,
             include: {
                 product: {
-                    select: { id: true, name: true, sku: true, category: true },
+                    select: { id: true, name: true, sku: true, category: true, unit: true },
                 },
                 store: {
                     select: { id: true, name: true },
@@ -172,8 +184,26 @@ class ProductService {
             orderBy: { quantity: 'asc' },
         });
 
-        // Filter in application layer since Prisma doesn't support column comparison directly
-        return lowStockItems.filter((item) => item.quantity <= item.minStockLevel);
+        // Filter and add reorder logic in application layer
+        return lowStockItems
+            .filter((item) => item.quantity <= item.minStockLevel)
+            .map((item) => {
+                // Calculation logic for "Order X more":
+                // 1. If maxStockLevel is defined, we aim to fill up to that level.
+                // 2. Otherwise, we aim for a target of double the minimum stock level (with a base minimum of 20).
+                let suggestion = 0;
+                if (item.maxStockLevel && item.maxStockLevel > item.quantity) {
+                    suggestion = item.maxStockLevel - item.quantity;
+                } else {
+                    const target = Math.max(item.minStockLevel * 2, 20);
+                    suggestion = Math.max(0, target - item.quantity);
+                }
+
+                return {
+                    ...item,
+                    reorderSuggestion: suggestion,
+                };
+            });
     }
 }
 

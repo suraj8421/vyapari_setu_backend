@@ -24,7 +24,7 @@ class PurchaseService {
                     throw { statusCode: 404, message: `Product not found: ${item.productId}` };
                 }
 
-                const gstRate = Number(product.gstRate);
+                const gstRate = item.gstRate !== undefined ? Number(item.gstRate) : Number(product.gstRate);
                 const itemSubtotal = item.unitPrice * item.quantity;
                 const gstAmount = (itemSubtotal * gstRate) / 100;
                 const itemTotal = itemSubtotal + gstAmount;

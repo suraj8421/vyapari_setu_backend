@@ -39,7 +39,7 @@ async function main() {
     // ─── Create Stores ───────────────────────────
     const store1 = await prisma.store.create({
         data: {
-            name: 'KhataBook Main Store',
+            name: 'Vyaparisetu Main Store',
             address: '123 Main Street',
             city: 'Mumbai',
             state: 'Maharashtra',
@@ -51,7 +51,7 @@ async function main() {
 
     const store2 = await prisma.store.create({
         data: {
-            name: 'KhataBook Branch',
+            name: 'Vyaparisetu Branch',
             address: '456 Commercial Road',
             city: 'Pune',
             state: 'Maharashtra',
@@ -67,7 +67,7 @@ async function main() {
 
     const adminUser = await prisma.user.create({
         data: {
-            email: 'admin@khata.com',
+            email: 'admin@vyaparisetu.com',
             password: hashedPassword,
             firstName: 'Admin',
             lastName: 'User',
@@ -79,7 +79,7 @@ async function main() {
 
     const storeUser = await prisma.user.create({
         data: {
-            email: 'staff@khata.com',
+            email: 'staff@vyaparisetu.com',
             password: hashedPassword,
             firstName: 'Staff',
             lastName: 'Member',
@@ -339,8 +339,8 @@ async function main() {
     console.log('✅ Seed completed successfully!');
     console.log('');
     console.log('📋 Login credentials:');
-    console.log('   Admin: admin@khata.com / admin123');
-    console.log('   Staff: staff@khata.com / admin123');
+    console.log('   Admin: admin@vyaparisetu.com / admin123');
+    console.log('   Staff: staff@vyaparisetu.com / admin123');
 }
 
 main()

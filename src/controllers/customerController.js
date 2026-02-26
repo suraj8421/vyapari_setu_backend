@@ -54,7 +54,8 @@ const customerController = {
 
     async getLedger(req, res, next) {
         try {
-            const { entries, pagination } = await customerService.getLedger(req.params.id, req.query);
+            const storeId = req.user.role === 'STORE_USER' ? req.user.storeId : null;
+            const { entries, pagination } = await customerService.getLedger(req.params.id, req.query, storeId);
             return paginated(res, entries, pagination, 'Ledger entries fetched');
         } catch (err) {
             next(err);

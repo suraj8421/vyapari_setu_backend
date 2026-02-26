@@ -1,0 +1,214 @@
+node : C:\Users\suyog nikam\
+Desktop\vyaparisetu\backend\
+node_modules\@prisma\client\
+runtime\client.js:70
+At line:1 char:1
++ node 
+scripts/migrate-walkin.js 
+2>&1 | Out-File -Encoding 
+ascii migrat ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~
+    + CategoryInfo          
+    : NotSpecified: (C:\Us  
+  ers\suyog ...me\client.   
+ js:70:String) [], Remot    
+eException
+    + FullyQualifiedErrorId 
+    : NativeCommandError
+ 
+${n}`}var hl=require("@prism
+a/client-runtime-utils");fun
+ction wl(e){return e.length=
+==0?Promise.resolve([]):new 
+Promise((t,r)=>{let n=new Ar
+ray(e.length),i=null,o=!1,s=
+0,a=()=>{o||(s++,s===e.lengt
+h&&(o=!0,i?r(i):t(n)))},l=c=
+>{o||(o=!0,r(c))};for(let c=
+0;c<e.length;c++)e[c].then(u
+=>{n[c]=u,a()},u=>{if(!(0,hl
+.hasBatchIndex)(u)){l(u);ret
+urn}u.batchRequestIdx===c?l(
+u):(i||(i=u),a())})})}var Lt
+=M("prisma:client");typeof g
+lobalThis=="object"&&(global
+This.NODE_CLIENT=!0);var Bd=
+{requestArgsToMiddlewareArgs
+:e=>e,middlewareArgsToReques
+tArgs:e=>e},Qd=Symbol.for("p
+risma.client.transaction.id"
+),Hd={id:0,nextId(){return++
+this.id}};function 
+Pl(e){class t{_originalClien
+t=this;_runtimeDataModel;_re
+questHandler;_connectionProm
+ise;_disconnectionPromise;_e
+ngineConfig;_accelerateEngin
+eConfig;_clientVersion;_erro
+rFormat;_tracingHelper;_prev
+iewFeatures;_activeProvider;
+_globalOmit;_extensions;_eng
+ine;_appliedParent;_createPr
+ismaPromise=ti();constructor
+(n){if(!n)throw new w.Prisma
+ClientInitializationError("`
+PrismaClient` needs to be 
+constructed with a 
+non-empty, valid `PrismaClie
+ntOptions`:\n\n```\nnew 
+PrismaClient({\n  ...\n})\n`
+``\n\nor\n\n```\nconstructor
+() {\n  super({ ... 
+});\n}\n```\n          ",oi)
+;e=n.__internal?.configOverr
+ide?.(e)??e,yl(n,e);let 
+i=new Tl.EventEmitter().on("
+error",()=>{});this._extensi
+ons=Le.empty(),this._preview
+Features=e.previewFeatures,t
+his._clientVersion=e.clientV
+ersion??oi,this._activeProvi
+der=e.activeProvider,this._g
+lobalOmit=n?.omit,this._trac
+ingHelper=nl();let o;if(n.ad
+apter){o=n.adapter;let s=e.a
+ctiveProvider==="postgresql"
+||e.activeProvider==="cockro
+achdb"?"postgres":e.activePr
+ovider;if(o.provider!==s)thr
+ow new w.PrismaClientInitial
+izationError(`The Driver 
+Adapter 
+\`${o.adapterName}\`, based 
+on \`${o.provider}\`, is 
+not compatible with the 
+provider \`${s}\` specified 
+in the Prisma schema.`,this.
+_clientVersion)}try{let s=n?
+?{},l=(s.__internal??{}).deb
+ug===!0;if(l&&M.enable("pris
+ma:client"),s.errorFormat?th
+is._errorFormat=s.errorForma
+t:process.env.NODE_ENV==="pr
+oduction"?this._errorFormat=
+"minimal":process.env.NO_COL
+OR?this._errorFormat="colorl
+ess":this._errorFormat="colo
+rless",this._runtimeDataMode
+l=e.runtimeDataModel,this._e
+ngineConfig={enableDebugLogs
+:l,logLevel:s.log&&ol(s.log)
+,logQueries:s.log&&!!(typeof
+ s.log=="string"?s.log==="qu
+ery":s.log.find(c=>typeof c=
+="string"?c==="query":c.leve
+l==="query")),compilerWasm:e
+.compilerWasm,clientVersion:
+e.clientVersion,previewFeatu
+res:this._previewFeatures,ac
+tiveProvider:e.activeProvide
+r,inlineSchema:e.inlineSchem
+a,tracingHelper:this._tracin
+gHelper,transactionOptions:{
+maxWait:s.transactionOptions
+?.maxWait??2e3,timeout:s.tra
+nsactionOptions?.timeout??5e
+3,isolationLevel:s.transacti
+onOptions?.isolationLevel},l
+ogEmitter:i,adapter:o,accele
+rateUrl:s.accelerateUrl,sqlC
+ommenters:s.comments},this._
+accelerateEngineConfig=Objec
+t.create(this._engineConfig)
+,this._accelerateEngineConfi
+g.accelerateUtils={resolveDa
+tasourceUrl:()=>{if(s.accele
+rateUrl)return 
+s.accelerateUrl;throw new w.
+PrismaClientInitializationEr
+ror(`\`accelerateUrl\` is 
+required when using \`@prism
+a/extension-accelerate\`:
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+                            
+       ^
+
+PrismaClientInitializationEr
+ror: `PrismaClient` needs 
+to be constructed with a 
+non-empty, valid 
+`PrismaClientOptions`:
+
+```
+new PrismaClient({
+  ...
+})
+```
+
+or
+
+```
+constructor() {
+  super({ ... });
+}
+```
+          
+    at new t 
+(C:\Users\suyog nikam\Deskto
+p\vyaparisetu\backend\node_m
+odules\@prisma\client\runtim
+e\client.js:70:960)
+    at file:///C:/Users/suyo
+g%20nikam/Desktop/vyapariset
+u/backend/scripts/migrate-wa
+lkin.js:8:16
+    at ModuleJob.run (node:i
+nternal/modules/esm/module_j
+ob:413:25)
+    at async onImport.traceP
+romise.__proto__ (node:inter
+nal/modules/esm/loader:660:2
+6)
+    at async asyncRunEntryPo
+intWithESMLoader (node:inter
+nal/modules/run_main:101:5) 
+{
+  clientVersion: '7.3.0',
+  errorCode: undefined,
+  retryable: undefined
+}
+
+Node.js v24.12.0

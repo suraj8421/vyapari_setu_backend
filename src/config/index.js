@@ -1,5 +1,5 @@
 // ============================================
-// KhataBook - Application Configuration
+// Vyaparisetu - Application Configuration
 // ============================================
 
 import dotenv from 'dotenv';

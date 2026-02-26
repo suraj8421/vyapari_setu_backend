@@ -24,6 +24,8 @@ class DashboardService {
         const [
             todaySales,
             monthSales,
+            todayPayments,
+            monthPayments,
             totalProducts,
             lowStockCount,
             totalCustomers,
@@ -32,7 +34,7 @@ class DashboardService {
             todayPurchases,
             monthPurchases,
         ] = await Promise.all([
-            // Today's sales
+            // Today's sales (Invoice Value)
             prisma.sale.aggregate({
                 where: {
                     ...storeFilter,
@@ -42,7 +44,7 @@ class DashboardService {
                 _sum: { totalAmount: true },
                 _count: true,
             }),
-            // Month's sales
+            // Month's sales (Invoice Value)
             prisma.sale.aggregate({
                 where: {
                     ...storeFilter,
@@ -50,6 +52,26 @@ class DashboardService {
                     status: 'COMPLETED',
                 },
                 _sum: { totalAmount: true },
+                _count: true,
+            }),
+            // Today's Payments Received (Actual Cash/UPI/Bank)
+            prisma.ledgerEntry.aggregate({
+                where: {
+                    ...storeFilter,
+                    type: 'DEBIT',
+                    createdAt: { gte: today, lt: tomorrow },
+                },
+                _sum: { amount: true },
+                _count: true,
+            }),
+            // Month's Payments Received
+            prisma.ledgerEntry.aggregate({
+                where: {
+                    ...storeFilter,
+                    type: 'DEBIT',
+                    createdAt: { gte: monthStart, lt: monthEnd },
+                },
+                _sum: { amount: true },
                 _count: true,
             }),
             // Total active products
@@ -102,9 +124,17 @@ class DashboardService {
                 amount: Number(todaySales._sum.totalAmount || 0),
                 count: todaySales._count,
             },
+            todayPayments: {
+                amount: Number(todayPayments._sum.amount || 0),
+                count: todayPayments._count,
+            },
             monthSales: {
                 amount: Number(monthSales._sum.totalAmount || 0),
                 count: monthSales._count,
+            },
+            monthPayments: {
+                amount: Number(monthPayments._sum.amount || 0),
+                count: monthPayments._count,
             },
             todayPurchases: {
                 amount: Number(todayPurchases._sum.totalAmount || 0),
