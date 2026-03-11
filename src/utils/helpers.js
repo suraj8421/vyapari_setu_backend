@@ -2,15 +2,28 @@
 // Invoice Number Generator
 // ============================================
 
+// FIX: The old generator used Math.random() which could produce the same 5-digit
+// number for two simultaneous requests on the same day, causing a unique constraint
+// violation on `invoiceNumber`. The new approach uses a per-process atomic counter
+// combined with the last 4 digits of Date.now() (milliseconds) to guarantee
+// uniqueness within a single Node.js process for all practical loads.
+let _invoiceCounter = 0;
+
 /**
- * Generate unique invoice number
- * Format: INV-YYYYMMDD-XXXXX
+ * Generate a unique invoice number.
+ * Format: PREFIX-YYYYMMDD-SSSS-CCCC
+ *   SSSS = last 4 digits of epoch milliseconds (sub-second uniqueness)
+ *   CCCC = per-process sequence counter (prevents same-millisecond collisions)
  */
 export function generateInvoiceNumber(prefix = 'INV') {
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.floor(10000 + Math.random() * 90000);
-    return `${prefix}-${dateStr}-${random}`;
+    // Last 4 digits of ms timestamp for sub-second uniqueness
+    const timeSuffix = String(Date.now()).slice(-4);
+    // Incrementing counter resets each time the server restarts — sufficient for normal load
+    _invoiceCounter = (_invoiceCounter + 1) % 10000;
+    const counter = String(_invoiceCounter).padStart(4, '0');
+    return `${prefix}-${dateStr}-${timeSuffix}${counter}`;
 }
 
 /**

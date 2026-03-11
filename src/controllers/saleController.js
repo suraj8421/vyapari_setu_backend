@@ -33,6 +33,23 @@ const saleController = {
             next(err);
         }
     },
+
+    /**
+     * FIX: Update sale status — previously there was no way to mark a sale
+     * as RETURNED or PARTIAL_RETURN despite those statuses existing in the schema.
+     * Staff submit for approval; admins apply directly.
+     */
+    async updateStatus(req, res, next) {
+        try {
+            const sale = await saleService.updateStatus(req.params.id, req.body, req.user);
+            const message = req.user.role === 'ADMIN'
+                ? 'Sale updated'
+                : 'Update request submitted for administrator approval';
+            return success(res, sale, message);
+        } catch (err) {
+            next(err);
+        }
+    },
 };
 
 export default saleController;

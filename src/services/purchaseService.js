@@ -4,6 +4,8 @@
 
 import prisma from '../config/database.js';
 import { parsePagination, generateInvoiceNumber } from '../utils/helpers.js';
+// FIX: Import AppError for proper stack traces
+import { AppError } from '../utils/AppError.js';
 
 class PurchaseService {
     /**
@@ -21,7 +23,7 @@ class PurchaseService {
                 });
 
                 if (!product) {
-                    throw { statusCode: 404, message: `Product not found: ${item.productId}` };
+                    throw new AppError(`Product not found: ${item.productId}`, 404);
                 }
 
                 const gstRate = item.gstRate !== undefined ? Number(item.gstRate) : Number(product.gstRate);
@@ -151,11 +153,34 @@ class PurchaseService {
         });
 
         if (!purchase) {
-            throw { statusCode: 404, message: 'Purchase not found' };
+            throw new AppError('Purchase not found', 404);
         }
 
         return purchase;
     }
+
+    /**
+     * FIX: Update purchase status.
+     * Previously there was no API endpoint to change a purchase from
+     * PENDING → RECEIVED / PARTIAL / CANCELLED despite those statuses
+     * existing in the PurchaseStatus schema enum.
+     */
+    async updateStatus(id, data) {
+        const { status, notes } = data;
+        const allowedStatuses = ['PENDING', 'RECEIVED', 'PARTIAL', 'CANCELLED'];
+        if (!allowedStatuses.includes(status)) {
+            throw new AppError(`Invalid status: ${status}`, 400);
+        }
+
+        const purchase = await prisma.purchase.findUnique({ where: { id } });
+        if (!purchase) throw new AppError('Purchase not found', 404);
+
+        return prisma.purchase.update({
+            where: { id },
+            data: { status, notes: notes || purchase.notes }
+        });
+    }
 }
 
 export default new PurchaseService();
+

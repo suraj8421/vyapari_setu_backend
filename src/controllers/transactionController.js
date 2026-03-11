@@ -3,7 +3,7 @@
 // ============================================
 
 import transactionService from '../services/transactionService.js';
-import prisma from '../config/database.js';
+import { success } from '../utils/response.js';
 
 class TransactionController {
     /**
@@ -59,17 +59,14 @@ class TransactionController {
         try {
             const { type, id } = req.params;
             const logs = await transactionService.getHistory(type, id);
-            res.status(200).json({
-                success: true,
-                data: logs
-            });
+            res.status(200).json({ success: true, data: logs });
         } catch (error) {
             res.status(error.statusCode || 500).json({ success: false, message: error.message });
         }
     }
 
     /**
-     * Admin approve a pending edit
+     * Admin approves a pending edit
      */
     async approve(req, res) {
         try {
@@ -80,6 +77,39 @@ class TransactionController {
                 message: 'Changes approved and applied',
                 data: result
             });
+        } catch (error) {
+            res.status(error.statusCode || 500).json({ success: false, message: error.message });
+        }
+    }
+
+    /**
+     * FIX: Admin rejects a pending edit (was completely missing before).
+     * Admins previously had no way to dismiss bad edit requests.
+     */
+    async reject(req, res) {
+        try {
+            const { logId } = req.params;
+            const { notes } = req.body;
+            const result = await transactionService.rejectUpdate(logId, req.user.id, notes);
+            res.status(200).json({
+                success: true,
+                message: 'Edit request rejected',
+                data: result
+            });
+        } catch (error) {
+            res.status(error.statusCode || 500).json({ success: false, message: error.message });
+        }
+    }
+
+    /**
+     * FIX: Get all PENDING approval requests (was completely missing before).
+     * Admins had no API to discover what edits needed review.
+     */
+    async getPendingApprovals(req, res) {
+        try {
+            const storeId = req.user.role === 'STORE_USER' ? req.user.storeId : req.query.storeId || null;
+            const list = await transactionService.getPendingApprovals(storeId);
+            res.status(200).json({ success: true, data: list });
         } catch (error) {
             res.status(error.statusCode || 500).json({ success: false, message: error.message });
         }

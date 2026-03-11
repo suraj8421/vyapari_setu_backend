@@ -21,4 +21,9 @@ router.get('/', purchaseController.getAll);
 // GET /api/purchases/:id
 router.get('/:id', purchaseController.getById);
 
+// PATCH /api/purchases/:id/status - Admin only
+// FIX: This route was missing; the PurchaseStatus enum had PENDING, RECEIVED,
+// PARTIAL, CANCELLED defined in the schema but there was no way to use them.
+router.patch('/:id/status', authorize('ADMIN'), purchaseController.updateStatus);
+
 export default router;

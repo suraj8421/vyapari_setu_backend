@@ -6,7 +6,13 @@ import { error } from '../utils/response.js';
 import config from '../config/index.js';
 
 export default function errorHandler(err, req, res, _next) {
-    console.error('Error:', err);
+    // FIX: Log the full stack trace for operational AppErrors too,
+    // not just generic errors. This helps debugging service-layer errors.
+    if (config.nodeEnv === 'development') {
+        console.error('Error Stack:', err.stack || err);
+    } else {
+        console.error('Error:', err.message || err);
+    }
 
     // Prisma known errors
     if (err.code === 'P2002') {

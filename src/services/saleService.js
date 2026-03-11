@@ -4,6 +4,8 @@
 
 import prisma from '../config/database.js';
 import { parsePagination, generateInvoiceNumber } from '../utils/helpers.js';
+// FIX: Import AppError so we get proper stack traces on thrown errors
+import { AppError } from '../utils/AppError.js';
 
 class SaleService {
     /**
@@ -256,10 +258,55 @@ class SaleService {
         });
 
         if (!sale) {
-            throw { statusCode: 404, message: 'Sale not found' };
+            // FIX: Using AppError instead of plain object so stack traces are preserved
+            throw new AppError('Sale not found', 404);
         }
 
         return sale;
+    }
+
+    /**
+     * FIX: Update sale status (RETURNED / PARTIAL_RETURN).
+     * Previously there was no API endpoint to change a sale's status despite
+     * RETURNED and PARTIAL_RETURN existing in the SaleStatus enum.
+     * When a sale is marked RETURNED, stock is added back to inventory.
+     */
+    async updateStatus(id, data, user) {
+        const { status, notes } = data;
+        const allowedStatuses = ['COMPLETED', 'RETURNED', 'PARTIAL_RETURN'];
+        if (!allowedStatuses.includes(status)) {
+            throw new AppError(`Invalid status: ${status}`, 400);
+        }
+
+        return prisma.$transaction(async (tx) => {
+            const sale = await tx.sale.findUnique({
+                where: { id },
+                include: { items: true }
+            });
+            if (!sale) throw new AppError('Sale not found', 404);
+
+            const updated = await tx.sale.update({
+                where: { id },
+                data: { status, notes: notes || sale.notes }
+            });
+
+            // If the sale is being returned, add stock back to inventory
+            if (status === 'RETURNED') {
+                for (const item of sale.items) {
+                    const inv = await tx.inventory.findFirst({
+                        where: { productId: item.productId, storeId: sale.storeId }
+                    });
+                    if (inv) {
+                        await tx.inventory.update({
+                            where: { id: inv.id },
+                            data: { quantity: { increment: item.quantity } }
+                        });
+                    }
+                }
+            }
+
+            return updated;
+        });
     }
 }
 

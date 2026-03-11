@@ -33,6 +33,20 @@ const purchaseController = {
             next(err);
         }
     },
+
+    /**
+     * FIX: Update purchase status — previously there was no API endpoint
+     * to change a purchase from PENDING → RECEIVED or CANCELLED, despite
+     * those statuses existing in the PurchaseStatus enum for a long time.
+     */
+    async updateStatus(req, res, next) {
+        try {
+            const purchase = await purchaseService.updateStatus(req.params.id, req.body);
+            return success(res, purchase, 'Purchase status updated');
+        } catch (err) {
+            next(err);
+        }
+    },
 };
 
 export default purchaseController;

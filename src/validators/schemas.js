@@ -98,6 +98,12 @@ const saleItemSchema = z.object({
     quantity: z.number().int().positive('Quantity must be positive'),
     unitPrice: z.number().positive('Unit price must be positive'),
     discount: z.number().min(0).default(0),
+    // FIX: gstRate was used heavily in the service layer but was missing from
+    // the Zod schema. Without validation, a client could send a negative or
+    // unreasonably large GST rate and it would silently pass through.
+    gstRate: z.number().min(0).max(100).default(0),
+    // Optional: allow manual batch/inventory selection from frontend
+    sourceInventoryId: z.string().uuid().optional(),
 });
 
 export const createSaleSchema = z.object({
@@ -116,6 +122,8 @@ const purchaseItemSchema = z.object({
     productId: z.string().uuid(),
     quantity: z.number().int().positive(),
     unitPrice: z.number().positive(),
+    // FIX: gstRate was also missing from the purchase item schema
+    gstRate: z.number().min(0).max(100).default(0),
 });
 
 export const createPurchaseSchema = z.object({
