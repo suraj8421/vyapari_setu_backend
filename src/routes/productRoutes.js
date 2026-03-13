@@ -27,6 +27,9 @@ router.get('/', productController.getAll);
 // GET /api/products/:id
 router.get('/:id', productController.getById);
 
+// GET /api/products/:id/movement
+router.get('/:id/movement', productController.getMovementHistory);
+
 // PUT /api/products/:id - Allow authenticated users (Staff & Admin)
 router.put('/:id', validateBody(updateProductSchema), productController.update);
 

@@ -34,6 +34,15 @@ const productController = {
         }
     },
 
+    async getMovementHistory(req, res, next) {
+        try {
+            const history = await productService.getMovementHistory(req.params.id);
+            return success(res, history, 'Product movement history fetched');
+        } catch (err) {
+            next(err);
+        }
+    },
+
     async update(req, res, next) {
         try {
             const product = await productService.update(req.params.id, req.validatedBody);

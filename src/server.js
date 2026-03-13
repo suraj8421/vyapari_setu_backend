@@ -23,6 +23,7 @@ import translateRoutes from './routes/translateRoutes.js';
 import transactionRoutes from './routes/transactionRoutes.js';
 // FIX: Register the new expense routes — previously expenses had no listing endpoint
 import expenseRoutes from './routes/expenseRoutes.js';
+import scannerRoutes from './routes/scannerRoutes.js';
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.use('/api/translate', translateRoutes);
 app.use('/api/transactions', transactionRoutes);
 // FIX: New — expose expense management endpoints
 app.use('/api/expenses', expenseRoutes);
+app.use('/api/scanner', scannerRoutes);
 
 // ─── 404 Handler ─────────────────────────────
 app.use((req, res) => {

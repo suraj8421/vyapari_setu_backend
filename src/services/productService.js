@@ -205,6 +205,65 @@ class ProductService {
                 };
             });
     }
+
+    /**
+     * Get chronological inventory movement history for a product
+     */
+    async getMovementHistory(id) {
+        const [sales, purchases] = await Promise.all([
+            prisma.saleItem.findMany({
+                where: { productId: id },
+                include: {
+                    sale: {
+                        select: { invoiceNumber: true, createdAt: true, status: true, customer: { select: { name: true } } }
+                    }
+                }
+            }),
+            prisma.purchaseItem.findMany({
+                where: { productId: id },
+                include: {
+                    purchase: {
+                        select: { invoiceNumber: true, createdAt: true, status: true, supplier: { select: { name: true } } }
+                    }
+                }
+            })
+        ]);
+
+        const history = [];
+
+        sales.forEach(s => {
+            if (s.sale && s.sale.status !== 'CANCELLED') {
+                const isReturn = s.sale.status === 'RETURNED' || s.sale.status === 'PARTIAL_RETURN';
+                history.push({
+                    id: `sale-${s.id}`,
+                    date: s.sale.createdAt,
+                    type: isReturn ? 'STOCK_RESTORE' : 'STOCK_OUT',
+                    quantity: isReturn ? s.quantity : -s.quantity,
+                    reference: s.sale.invoiceNumber || 'Sale',
+                    party: s.sale.customer?.name || 'Walk-in Customer',
+                    rawStatus: s.sale.status
+                });
+            }
+        });
+
+        purchases.forEach(p => {
+            if (p.purchase && p.purchase.status !== 'CANCELLED') {
+                history.push({
+                    id: `purch-${p.id}`,
+                    date: p.purchase.createdAt,
+                    type: 'STOCK_IN',
+                    quantity: p.quantity,
+                    reference: p.purchase.invoiceNumber || 'Purchase',
+                    party: p.purchase.supplier?.name || 'Supplier',
+                    rawStatus: p.purchase.status
+                });
+            }
+        });
+
+        // Sort completely descending by date
+        history.sort((a, b) => new Date(b.date) - new Date(a.date));
+        return history;
+    }
 }
 
 export default new ProductService();
