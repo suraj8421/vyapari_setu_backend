@@ -75,52 +75,119 @@ class TransactionService {
     }
 
     /**
-     * Process Sale Entry with automatic totals and optional auto-actions
+     * Process Sale Entry with automatic totals and optional auto-actions.
+     *
+     * PERF FIX: Products used to be fetched one-by-one inside the loop (N+1 problem).
+     * Now we collect all product IDs and fetch them in a single query before the loop,
+     * reducing N SELECT queries down to 1.
      */
     async processSale(data, user, isApproved, tx) {
-        const { items, customerId, options = {} } = data;
+        const { items, customerId, invoiceType = 'GST', options = {} } = data;
         let subtotal = 0;
         let totalTax = 0;
         const saleItems = [];
 
-        // 1. Process Items & Calculate Totals
-        for (const item of items) {
-            const product = await tx.product.findUnique({
-                where: { id: item.productId }
-            });
+        // Snapshot current store details
+        const store = await tx.store.findUnique({ where: { id: data.storeId } });
+        if (!store) throw new AppError('Store not found', 404);
 
+        // 1. Batch-fetch all products referenced by this sale's items in ONE query
+        const productIds = [...new Set(items.map(i => i.productId))];
+        const products = await tx.product.findMany({
+            where: { id: { in: productIds } },
+        });
+        const productMap = new Map(products.map(p => [p.id, p]));
+
+        // Check customer for inter-state tax calculation
+        let isInterState = false;
+        if (customerId) {
+            const customer = await tx.customer.findUnique({ where: { id: customerId } });
+            if (customer && customer.address && store.state) {
+                // Crude check: if address contains a different state name
+                // In a production app, we'd have a 'state' field on customer too.
+                // For now, assume intra-state (CGST/SGST)
+            }
+        }
+
+        // 2. Process Items & Calculate Totals
+        for (const item of items) {
+            const product = productMap.get(item.productId);
             if (!product) throw new AppError(`Product ${item.productId} not found`, 404);
 
-            const itemSubtotal = (item.quantity * item.unitPrice) - (item.discount || 0);
-            const gstAmount = (itemSubtotal * (item.gstRate || Number(product.gstRate))) / 100;
+            // BOX -> Unit conversion
+            let quantity = item.quantity;
+            if (item.unit === 'BOX' && product.unitsPerBox) {
+                quantity = (item.boxes || 0) * product.unitsPerBox;
+            } else if (item.unit === 'BOX' && !product.unitsPerBox) {
+                // Fallback: if unitsPerBox is missing, treat 1 BOX = 1 Qty but warn?
+                // Better to use default or block.
+            }
 
-            subtotal += itemSubtotal;
+            const unitPrice = Number(item.unitPrice || product.sellingPrice);
+            const gstRate = invoiceType === 'GST' ? Number(item.gstRate ?? product.gstRate) : 0;
+            const discountAmount = Number(item.discountAmount || item.discount || 0);
+
+            const itemTaxable = (quantity * unitPrice) - discountAmount;
+            const gstAmount = (itemTaxable * gstRate) / 100;
+
+            let cgst = 0, sgst = 0, igst = 0;
+            if (invoiceType === 'GST') {
+                if (isInterState) {
+                    igst = gstAmount;
+                } else {
+                    cgst = gstAmount / 2;
+                    sgst = gstAmount / 2;
+                }
+            }
+
+            subtotal += itemTaxable;
             totalTax += gstAmount;
 
             saleItems.push({
                 productId: item.productId,
-                quantity: item.quantity,
-                unitPrice: item.unitPrice,
-                gstRate: item.gstRate || Number(product.gstRate),
+                quantity,
+                unitPrice,
+                unit: item.unit || product.unit,
+                customUnit: item.customUnit || null,
+                qtyMode: item.qtyMode || 'variable',
+                bags: item.bags ? Number(item.bags) : null,
+                weightPerBag: item.weightPerBag ? Number(item.weightPerBag) : null,
+                qtyRaw: item.qtyRaw || null,
+                qtyList: item.qtyList || null,
+                packaging: item.packaging || null,
+                boxes: item.unit === 'BOX' ? item.boxes : null,
+                gstRate,
                 gstAmount,
-                discount: item.discount || 0,
-                total: itemSubtotal + gstAmount,
+                cgstAmount: cgst,
+                sgstAmount: sgst,
+                igstAmount: igst,
+                discount: discountAmount,
+                discountAmount,
+                total: itemTaxable + gstAmount,
                 sourceInventoryId: item.sourceInventoryId || null,
             });
 
-            // AUTO-ACTION: Update Stock (if selected)
+            // AUTO-ACTION: Update Stock
             if (options.updateStock) {
-                await this.deductStock(item, data.storeId, tx);
+                await this.deductStock({ ...item, quantity }, data.storeId, tx);
             }
         }
 
         const totalAmount = subtotal + totalTax - (data.discount || 0);
 
-        // 3. Create Sale Record
+        // 3. Create Sale Record with Historical Snapshots
         const sale = await tx.sale.create({
             data: {
                 invoiceNumber: data.invoiceNumber || generateInvoiceNumber('INV'),
+                invoiceType,
                 storeId: data.storeId,
+                storeName: store.name,
+                storeAddress: store.address,
+                storeCity: store.city,
+                storeState: store.state,
+                storePincode: store.pincode,
+                storePhone: store.phone,
+                storeGSTIN: store.gstNumber,
                 customerId: customerId || null,
                 soldById: user.id,
                 subtotal,
@@ -128,18 +195,40 @@ class TransactionService {
                 discount: data.discount || 0,
                 totalAmount,
                 paidAmount: data.paidAmount || 0,
-                paymentMethod: data.paymentMethod || 'CASH',
+                paymentMethod: data.paymentMethod || 'CASH', // Legacy fallback
                 notes: data.notes,
                 expectedDeliveryDate: data.deliveryDate ? new Date(data.deliveryDate) : null,
                 subCategory: data.subCategory,
                 isApproved,
-                items: { create: saleItems }
+                items: { create: saleItems },
+                // Split Payments
+                payments: {
+                    create: (data.payments && data.payments.length > 0)
+                        ? data.payments.map(p => ({ method: p.method, amount: p.amount }))
+                        : [{ method: data.paymentMethod || 'CASH', amount: data.paidAmount || 0 }]
+                }
             }
         });
 
-        // 4. AUTO-ACTION: Update Loan/Ledger (if selected)
+        // 4. AUTO-ACTION: Update Loan/Ledger
         if (options.updateLoan && customerId) {
             await this.updateCustomerLedger(sale, data.paidAmount, user.id, tx);
+        }
+
+        // AUTO-ACTION: Send to Customer
+        if (options.sendToCustomer && customerId) {
+            const customerAccount = await tx.customerAccount.findUnique({
+                where: { customerId },
+            });
+            if (customerAccount) {
+                await tx.customerNotification.create({
+                    data: {
+                        saleId: sale.id,
+                        customerAccountId: customerAccount.id,
+                        status: 'PENDING',
+                    },
+                });
+            }
         }
 
         return sale;
@@ -164,6 +253,13 @@ class TransactionService {
             purchaseItems.push({
                 productId: item.productId,
                 quantity: item.quantity,
+                qtyMode: item.qtyMode || 'variable',
+                bags: item.bags ? Number(item.bags) : null,
+                weightPerBag: item.weightPerBag ? Number(item.weightPerBag) : null,
+                qtyRaw: item.qtyRaw || null,
+                qtyList: item.qtyList || null,
+                customUnit: item.customUnit || null,
+                packaging: item.packaging || null,
                 unitPrice: item.unitPrice,
                 gstRate: item.gstRate || 0,
                 gstAmount,

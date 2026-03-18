@@ -47,7 +47,9 @@ export const createProductSchema = z.object({
     sku: z.string().min(1, 'SKU is required'),
     barcode: z.string().optional(),
     category: z.string().optional(),
-    unit: z.string().default('pcs'),
+    unit: z.enum(['PCS', 'BOX', 'KG', 'LTR', 'BAG', 'SET', 'PACK', 'DOZEN']).default('PCS'),
+    unitsPerBox: z.number().int().positive().optional(),
+    allowLooseSale: z.boolean().default(true),
     costPrice: z.number().positive('Cost price must be positive'),
     sellingPrice: z.number().positive('Selling price must be positive'),
     gstRate: z.number().min(0).max(100).default(0),
@@ -95,13 +97,13 @@ export const updateSupplierSchema = createSupplierSchema.partial().omit({ storeI
 
 const saleItemSchema = z.object({
     productId: z.string().uuid(),
-    quantity: z.number().int().positive('Quantity must be positive'),
+    quantity: z.number().int().positive('Quantity must be positive').optional(), // Optional if boxes is used
     unitPrice: z.number().positive('Unit price must be positive'),
     discount: z.number().min(0).default(0),
-    // FIX: gstRate was used heavily in the service layer but was missing from
-    // the Zod schema. Without validation, a client could send a negative or
-    // unreasonably large GST rate and it would silently pass through.
-    gstRate: z.number().min(0).max(100).default(0),
+    unit: z.enum(['PCS', 'BOX', 'KG', 'LTR', 'BAG', 'SET', 'PACK', 'DOZEN']).optional(),
+    boxes: z.number().int().positive().optional(),
+    gstRate: z.number().min(0).max(100).optional(),
+    discountAmount: z.number().min(0).optional(),
     // Optional: allow manual batch/inventory selection from frontend
     sourceInventoryId: z.string().uuid().optional(),
 });
@@ -109,9 +111,14 @@ const saleItemSchema = z.object({
 export const createSaleSchema = z.object({
     storeId: z.string().uuid(),
     customerId: z.string().uuid().optional(),
+    invoiceType: z.enum(['GST', 'NON_GST']).default('GST'),
     items: z.array(saleItemSchema).min(1, 'At least one item is required'),
     discount: z.number().min(0).default(0),
     paymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'CREDIT', 'OTHER']).default('CASH'),
+    payments: z.array(z.object({
+        method: z.enum(['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'CREDIT', 'OTHER']),
+        amount: z.number().positive()
+    })).optional(),
     paidAmount: z.number().min(0).default(0),
     notes: z.string().optional(),
 });
@@ -155,4 +162,17 @@ export const updateUserSchema = z.object({
     role: z.enum(['ADMIN', 'STORE_USER']).optional(),
     storeId: z.string().uuid().optional().nullable(),
     isActive: z.boolean().optional(),
+});
+
+// ─── Customer Portal Schemas ─────────────────
+
+export const customerPortalRegisterSchema = z.object({
+    email: z.string().email('Invalid email address'),
+    password: z.string().min(6, 'Password must be at least 6 characters'),
+    phone: z.string().min(10, 'Phone number is required'),
+});
+
+export const customerPortalLoginSchema = z.object({
+    email: z.string().email('Invalid email address'),
+    password: z.string().min(1, 'Password is required'),
 });

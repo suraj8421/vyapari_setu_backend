@@ -91,3 +91,51 @@ export function storeScope(req, res, next) {
     req.storeId = req.user.storeId;
     next();
 }
+
+/**
+ * Customer Portal Authentication Middleware
+ * Validates a customer-specific JWT and fetches CustomerAccount
+ */
+export async function authenticateCustomer(req, res, next) {
+    try {
+        const authHeader = req.headers.authorization;
+
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return error(res, 'Access denied. No token provided.', 401);
+        }
+
+        const token = authHeader.split(' ')[1];
+        const decoded = verifyAccessToken(token);
+
+        // Verify this is a CUSTOMER token, not a business user token
+        if (decoded.role !== 'CUSTOMER') {
+            return error(res, 'Invalid token type for customer portal.', 401);
+        }
+
+        const account = await prisma.customerAccount.findUnique({
+            where: { id: decoded.userId },
+            select: {
+                id: true,
+                email: true,
+                phone: true,
+                isActive: true,
+                customerId: true,
+            },
+        });
+
+        if (!account || !account.isActive) {
+            return error(res, 'Customer account is inactive or not found.', 401);
+        }
+
+        req.customerAccount = account;
+        next();
+    } catch (err) {
+        if (err.name === 'TokenExpiredError') {
+            return error(res, 'Token expired. Please refresh your token.', 401);
+        }
+        if (err.name === 'JsonWebTokenError') {
+            return error(res, 'Invalid token.', 401);
+        }
+        return error(res, 'Authentication failed.', 401);
+    }
+}

@@ -138,7 +138,16 @@ class AuthService {
                 role: true,
                 storeId: true,
                 store: {
-                    select: { id: true, name: true },
+                    select: { 
+                        id: true, 
+                        name: true,
+                        address: true,
+                        city: true,
+                        state: true,
+                        pincode: true,
+                        phone: true,
+                        gstNumber: true
+                    },
                 },
                 isActive: true,
                 createdAt: true,

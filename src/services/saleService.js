@@ -51,16 +51,16 @@ class SaleService {
                 });
 
                 if (!product) {
-                    throw { statusCode: 404, message: `Product not found: ${item.productId}` };
+                    throw new AppError(`Product not found: ${item.productId}`, 404);
                 }
 
                 // Check stock
                 const totalStock = product.inventory.reduce((sum, inv) => sum + inv.quantity, 0);
                 if (totalStock < item.quantity) {
-                    throw {
-                        statusCode: 400,
-                        message: `Insufficient stock for ${product.name}. Available: ${totalStock}, Requested: ${item.quantity}`,
-                    };
+                    throw new AppError(
+                        `Insufficient stock for ${product.name}. Available: ${totalStock}, Requested: ${item.quantity}`,
+                        400
+                    );
                 }
 
                 // Calculate item totals
@@ -112,7 +112,7 @@ class SaleService {
             });
 
             if (!customer) {
-                throw { statusCode: 404, message: 'Customer not found' };
+                throw new AppError('Customer not found', 404);
             }
 
             // Create sale
