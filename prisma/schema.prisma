@@ -135,6 +135,8 @@ model Customer {
   storeId         String           @map("store_id")
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
+  creditScore     Int              @default(100) @map("credit_score")
+  creditCategory  String           @default("Trusted") @map("credit_category")
   customerAccount CustomerAccount?
   store           Store            @relation(fields: [storeId], references: [id])
   ledgerEntries   LedgerEntry[]
@@ -180,6 +182,7 @@ model Sale {
   paymentMethod         PaymentMethod          @default(CASH) @map("payment_method")
   status                SaleStatus             @default(COMPLETED)
   notes                 String?
+  dueDate               DateTime?              @map("due_date")
   expectedDeliveryDate  DateTime?              @map("expected_delivery_date")
   subCategory           String?                @map("sub_category")
   isApproved            Boolean                @default(true) @map("is_approved")

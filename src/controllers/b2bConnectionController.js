@@ -46,6 +46,28 @@ class B2bConnectionController {
             next(err);
         }
     }
+    
+    async getStoreDetails(req, res, next) {
+        try {
+            const { id } = req.params;
+            const requesterStoreId = req.user.storeId;
+            const store = await b2bConnectionService.getStoreDetails(requesterStoreId, id);
+            return success(res, store, 'Store details fetched');
+        } catch (err) {
+            next(err);
+        }
+    }
+
+    async getStoreProducts(req, res, next) {
+        try {
+            const { id } = req.params;
+            const requesterStoreId = req.user.storeId;
+            const products = await b2bConnectionService.getStoreProducts(requesterStoreId, id);
+            return success(res, products, 'Store products fetched');
+        } catch (err) {
+            next(err);
+        }
+    }
 }
 
 export default new B2bConnectionController();

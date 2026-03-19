@@ -6,6 +6,7 @@ import prisma from '../config/database.js';
 import { parsePagination, generateInvoiceNumber } from '../utils/helpers.js';
 // FIX: Import AppError so we get proper stack traces on thrown errors
 import { AppError } from '../utils/AppError.js';
+import creditScoreService from './creditScoreService.js';
 
 class SaleService {
     /**
@@ -129,6 +130,7 @@ class SaleService {
                     paidAmount,
                     paymentMethod: data.paymentMethod || 'CASH',
                     notes: data.notes || null,
+                    dueDate: data.dueDate ? new Date(data.dueDate) : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // Default 15 days
                     items: {
                         create: saleItems,
                     },
@@ -186,6 +188,9 @@ class SaleService {
                 where: { id: actualCustomerId },
                 data: { balance: currentBalance },
             });
+
+            // Trigger credit score calculation (Async, don't block response)
+            creditScoreService.calculateAndSaveScore(actualCustomerId);
 
             return sale;
         });

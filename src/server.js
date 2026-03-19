@@ -175,10 +175,14 @@ server.listen(PORT, async () => {
 ║      Port: ${PORT}                              ║
 ║      Env:  ${config.nodeEnv.padEnd(17)}        ║
 ║      Prisma v7 + ESM                         ║
+║      Host: ${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost'}
 ╚══════════════════════════════════════════════╝
     `);
 
     try {
+        console.log("Starting startup services...");
+        console.log("Configured Port:", PORT);
+        console.log("Environment:", config.nodeEnv);
         startCronSafely();
     } catch (err) {
         console.error("Startup error:", err);

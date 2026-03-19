@@ -85,6 +85,29 @@ class B2bInvoiceController {
             next(err);
         }
     }
+
+    async placeOrder(req, res, next) {
+        console.log('B2B Place Order Hit:', req.body);
+        try {
+            const userId = req.user.id;
+            const currentStoreId = req.user.storeId;
+            const { partnerStoreId, items, notes } = req.body;
+            const io = req.app.locals.io;
+
+            // This simplifies the UI call. We find the connection and determine roles.
+            // If the partner is our supplier, we are the buyer.
+            // If the partner is our buyer, we are the seller (technically a "Sales Order").
+            const invoice = await b2bInvoiceService.placeOrder(currentStoreId, partnerStoreId, items, notes, userId, io);
+
+            if (io) {
+                io.to(`store_${invoice.buyerStoreId}`).emit('new_invoice_request', invoice);
+            }
+
+            return success(res, invoice, 'B2B Order placed successfully', 201);
+        } catch (err) {
+            next(err);
+        }
+    }
 }
 
 export default new B2bInvoiceController();

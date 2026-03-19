@@ -23,9 +23,6 @@ class ApprovalNotificationService {
      * Optionally accepts a Socket.IO `io` instance to emit real-time events.
      */
     async create({ storeId, type, title, message, referenceId, referenceType, actionData, userId }, io) {
-        let priority = 'LOW';
-        if (['B2B_INVOICE_REQUEST', 'PAYMENT'].includes(type)) priority = 'HIGH';
-        else if (type === 'STORE_CONNECTION_REQUEST') priority = 'MEDIUM';
 
         const notif = await prisma.approvalNotification.create({
             data: {
@@ -35,7 +32,6 @@ class ApprovalNotificationService {
                 message,
                 referenceId,
                 referenceType,
-                priority,
                 actionData: actionData ? JSON.stringify(actionData) : null,
                 status: 'PENDING',
             },
@@ -139,7 +135,6 @@ class ApprovalNotificationService {
         const data = await prisma.approvalNotification.findMany({
             where,
             orderBy: [
-                { priority: 'desc' },
                 { createdAt: 'desc' }
             ],
             take: 100,
@@ -157,8 +152,8 @@ class ApprovalNotificationService {
         const standalone = [];
 
         for (const notif of notifications) {
-            // Only group unread pending generic items that aren't high priority
-            if (notif.status !== 'PENDING' || notif.isRead || notif.priority === 'HIGH') {
+            // Only group unread pending generic items
+            if (notif.status !== 'PENDING' || notif.isRead) {
                 standalone.push(notif);
                 continue;
             }
@@ -190,8 +185,7 @@ class ApprovalNotificationService {
         }
 
         return standalone.sort((a, b) => {
-            const p = { 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
-            return (p[b.priority || 'LOW'] - p[a.priority || 'LOW']) || (new Date(b.createdAt) - new Date(a.createdAt));
+            return (new Date(b.createdAt) - new Date(a.createdAt));
         });
     }
 

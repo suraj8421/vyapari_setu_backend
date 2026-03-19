@@ -12,10 +12,13 @@ const router = express.Router();
 router.use(authenticate);
 
 // ─── Network Connections ─────────────────
+router.post('/place-order', b2bInvoiceController.placeOrder); 
 router.get('/network', b2bConnectionController.getConnections);
 router.post('/network/request', b2bConnectionController.requestConnection);
 router.post('/network/:connectionId/accept', b2bConnectionController.acceptConnection);
 router.get('/network/search', b2bConnectionController.searchStores);
+router.get('/store/:id', b2bConnectionController.getStoreDetails);
+router.get('/store/:id/products', b2bConnectionController.getStoreProducts);
 
 // ─── B2B Invoices ────────────────────────
 router.get('/invoices', b2bInvoiceController.getStoreInvoices);

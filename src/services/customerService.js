@@ -4,6 +4,7 @@
 
 import prisma from '../config/database.js';
 import { parsePagination } from '../utils/helpers.js';
+import creditScoreService from './creditScoreService.js';
 
 class CustomerService {
     async create(data) {
@@ -162,6 +163,9 @@ class CustomerService {
                 },
             });
 
+            // Trigger credit score calculation (Async)
+            creditScoreService.calculateAndSaveScore(data.customerId);
+
             return entry;
         });
     }
@@ -185,6 +189,8 @@ class CustomerService {
                 phone: true,
                 balance: true,
                 creditLimit: true,
+                creditScore: true,
+                creditCategory: true,
                 store: { select: { id: true, name: true } },
             },
         });

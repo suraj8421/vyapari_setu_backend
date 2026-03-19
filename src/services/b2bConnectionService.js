@@ -136,6 +136,72 @@ class B2bConnectionService {
             take: 10
         });
     }
+
+    async getStoreDetails(requesterStoreId, targetStoreId) {
+        // Verify connection exists
+        const connection = await prisma.storeConnection.findFirst({
+            where: {
+                OR: [
+                    { supplierStoreId: requesterStoreId, buyerStoreId: targetStoreId },
+                    { supplierStoreId: targetStoreId, buyerStoreId: requesterStoreId }
+                ],
+                status: 'ACCEPTED'
+            }
+        });
+
+        if (!connection) {
+            throw new AppError("Active connection with this store not found", 403);
+        }
+
+        const store = await prisma.store.findUnique({
+            where: { id: targetStoreId },
+            select: {
+                id: true,
+                name: true,
+                address: true,
+                city: true,
+                state: true,
+                pincode: true,
+                phone: true,
+                gstNumber: true
+            }
+        });
+
+        return {
+            ...store,
+            role: connection.supplierStoreId === requesterStoreId ? 'MY_BUYER' : 'MY_SUPPLIER'
+        };
+    }
+
+    async getStoreProducts(requesterStoreId, targetStoreId) {
+        // Verify connection exists
+        const connection = await prisma.storeConnection.findFirst({
+            where: {
+                OR: [
+                    { supplierStoreId: requesterStoreId, buyerStoreId: targetStoreId },
+                    { supplierStoreId: targetStoreId, buyerStoreId: requesterStoreId }
+                ],
+                status: 'ACCEPTED'
+            }
+        });
+
+        if (!connection) {
+            throw new AppError("Active connection with this store not found", 403);
+        }
+
+        // Return products from the target store
+        return await prisma.product.findMany({
+            where: { storeId: targetStoreId, isActive: true },
+            select: {
+                id: true,
+                name: true,
+                sellingPrice: true,
+                unit: true,
+                category: true,
+                sku: true
+            }
+        });
+    }
 }
 
 export default new B2bConnectionService();

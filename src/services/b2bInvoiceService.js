@@ -347,6 +347,33 @@ class B2bInvoiceService {
             orderBy: { createdAt: 'desc' }
         });
     }
+
+    /**
+     * Unified method for a store to "Place an Order" with a partner.
+     * Roles are determined by the connection.
+     */
+    async placeOrder(currentStoreId, partnerStoreId, items, notes, userId, io) {
+        // Find connection to determine who is supplier and who is buyer
+        const connection = await prisma.storeConnection.findFirst({
+            where: {
+                OR: [
+                    { supplierStoreId: currentStoreId, buyerStoreId: partnerStoreId },
+                    { supplierStoreId: partnerStoreId, buyerStoreId: currentStoreId }
+                ],
+                status: 'ACCEPTED'
+            }
+        });
+
+        if (!connection) throw new AppError("Active connection with this store not found", 403);
+
+        // In a B2B order, the Seller is the Supplier and the Buyer is the Buyer Store.
+        const sellerStoreId = connection.supplierStoreId;
+        const buyerStoreId = connection.buyerStoreId;
+
+        // Reuse createInvoice logic or call it directly
+        // We need to pass the data in the format createInvoice expects
+        return await this.createInvoice(sellerStoreId, { buyerStoreId, items, notes }, userId, io);
+    }
 }
 
 export default new B2bInvoiceService();
