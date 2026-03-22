@@ -173,6 +173,7 @@ model LedgerEntry {
 
 model Sale {
   id                    String                 @id @default(uuid())
+  clientId              String?                @unique @map("client_id")
   invoiceNumber         String                 @unique @map("invoice_number")
   subtotal              Decimal                @db.Decimal(12, 2)
   taxAmount             Decimal                @default(0) @map("tax_amount") @db.Decimal(12, 2)
@@ -207,6 +208,7 @@ model Sale {
   soldBy                User                   @relation(fields: [soldById], references: [id])
   store                 Store                  @relation(fields: [storeId], references: [id])
 
+  @@index([clientId])
   @@index([invoiceNumber])
   @@index([storeId])
   @@index([customerId])

@@ -35,6 +35,19 @@ class SaleService {
      * Create a new sale with automatic stock deduction
      */
     async create(data, userId) {
+        // ── IDEMPOTENCY CHECK ──────────────────────────────────────────
+        // If the client sent a clientId (assigned when creating the request offline),
+        // check whether this sale was already processed (e.g., sync retried after reconnect).
+        if (data.clientId) {
+            const existing = await prisma.sale.findUnique({
+                where: { clientId: data.clientId },
+            });
+            if (existing) {
+                console.log(`[saleService] Duplicate clientId detected: ${data.clientId} — returning existing sale`);
+                return existing;
+            }
+        }
+
         return prisma.$transaction(async (tx) => {
             let subtotal = 0;
             let totalTax = 0;
@@ -119,6 +132,7 @@ class SaleService {
             // Create sale
             const sale = await tx.sale.create({
                 data: {
+                    clientId: data.clientId || null,
                     invoiceNumber: generateInvoiceNumber('INV'),
                     storeId: data.storeId,
                     customerId: actualCustomerId,

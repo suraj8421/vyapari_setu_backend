@@ -57,7 +57,7 @@ io.on('connection', (socket) => {
     socket.on('join_store', (storeId) => {
         socket.join(`store_${storeId}`);
     });
-    
+
     // For specific chat rooms
     socket.on('join_invoice', (invoiceId) => {
         socket.join(`invoice_${invoiceId}`);
@@ -82,7 +82,7 @@ app.use(compression());
 // Rate Limiting — protects against DoS and brute-force attacks
 const generalLimiter = rateLimit({
     windowMs: 60 * 1000,       // 1 minute
-    max: 300,                  // max 300 requests per minute per IP
+    max: 100,                  // max 100 requests per minute per IP
     standardHeaders: true,
     legacyHeaders: false,
     message: { success: false, message: 'Too many requests, please try again later.' },
@@ -114,10 +114,14 @@ app.get('/api/health', (req, res) => {
 });
 
 // ─── API Routes ──────────────────────────────
-// Apply strict auth rate limiter to authentication endpoints
-app.use('/api/auth', authLimiter, authRoutes);
+// Apply strict auth rate limiter to sensitive authentication endpoints
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 app.use('/api/customer-portal/register', authLimiter);
 app.use('/api/customer-portal/login', authLimiter);
+
+// Auth routes (profile, logout, token refresh) use the generalLimiter
+app.use('/api/auth', authRoutes);
 app.use('/api/stores', storeRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/customers', customerRoutes);
