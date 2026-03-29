@@ -122,6 +122,8 @@ class ApprovalNotificationService {
      * Supports filtering by status, referenceType, and type.
      */
     async getByStore(storeId, { status, referenceType, type } = {}) {
+        if (!storeId) return [];
+        
         const where = { storeId };
         if (status) where.status = status;
         if (referenceType) where.referenceType = referenceType;
@@ -193,6 +195,7 @@ class ApprovalNotificationService {
      * Get unread count for a store (only PENDING + unread items shown in badge).
      */
     async getUnreadCount(storeId) {
+        if (!storeId) return 0;
         return await prisma.approvalNotification.count({
             where: { storeId, isRead: false, status: 'PENDING' },
         });
@@ -215,6 +218,7 @@ class ApprovalNotificationService {
      * Mark all notifications as read for a store.
      */
     async markAllRead(storeId) {
+        if (!storeId) return;
         await prisma.approvalNotification.updateMany({
             where: { storeId, isRead: false },
             data: { isRead: true },

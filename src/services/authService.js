@@ -117,6 +117,7 @@ class AuthService {
      * Logout user
      */
     async logout(userId) {
+        if (userId === 'super-admin-001') return;
         await prisma.user.update({
             where: { id: userId },
             data: { refreshToken: null },
@@ -127,6 +128,22 @@ class AuthService {
      * Get current user profile
      */
     async getProfile(userId) {
+        // Super Admin Mock Profile Bypass for Development
+        if (userId === 'super-admin-001') {
+            return {
+                id: 'super-admin-001',
+                email: 'super@vyaparisetu.com',
+                firstName: 'System',
+                lastName: 'Admin',
+                phone: '0000000000',
+                role: 'SUPERADMIN',
+                storeId: null,
+                store: null,
+                isActive: true,
+                createdAt: new Date(),
+            };
+        }
+
         const user = await prisma.user.findUnique({
             where: { id: userId },
             select: {
