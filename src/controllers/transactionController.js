@@ -34,9 +34,9 @@ class TransactionController {
             const { type, id } = req.params;
             const result = await transactionService.update(type, id, req.body, req.user);
 
-            const message = req.user.role === 'ADMIN'
-                ? 'Transaction updated successfully'
-                : 'Edit request submitted for administrator approval';
+            const message = (req.user.role === 'ADMIN' || req.user.role === 'SUPERADMIN')
+                ? 'Sale updated'
+                : 'Update request submitted for administrator approval';
 
             res.status(200).json({
                 success: true,

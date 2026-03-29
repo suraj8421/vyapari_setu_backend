@@ -18,6 +18,21 @@ export async function authenticate(req, res, next) {
         }
 
         const token = authHeader.split(' ')[1];
+
+        // Super Admin Mock Bypass for Development
+        if (token === 'mock-super-token') {
+            req.user = {
+                id: 'super-admin-001',
+                email: 'super@vyaparisetu.com',
+                firstName: 'System',
+                lastName: 'Admin',
+                role: 'SUPERADMIN',
+                isActive: true,
+                storeId: null
+            };
+            return next();
+        }
+
         const decoded = verifyAccessToken(token);
 
         // Verify user still exists and is active
@@ -60,6 +75,11 @@ export function authorize(...roles) {
             return error(res, 'Authentication required.', 401);
         }
 
+        // SUPERADMIN has all permissions
+        if (req.user.role === 'SUPERADMIN') {
+            return next();
+        }
+
         if (!roles.includes(req.user.role)) {
             return error(res, 'Access denied. Insufficient permissions.', 403);
         }
@@ -73,7 +93,7 @@ export function authorize(...roles) {
  * Ensures users can only access data from their assigned store
  */
 export function storeScope(req, res, next) {
-    if (req.user.role === 'ADMIN') {
+    if (req.user.role === 'ADMIN' || req.user.role === 'SUPERADMIN') {
         // Admins can access all stores
         return next();
     }

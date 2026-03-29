@@ -41,6 +41,12 @@ import customerPortalRoutes from './routes/customerPortalRoutes.js';
 import b2bRoutes from './routes/b2bRoutes.js';
 import b2bCronService from './services/b2bCronService.js';
 import approvalRoutes from './routes/approvalRoutes.js';
+import planRoutes from './routes/planRoutes.js';
+import employeeRoutes from './routes/employeeRoutes.js';
+import onboardingRoutes from './routes/onboardingRoutes.js';
+import saUserRoutes from './routes/saUserRoutes.js';
+import saDashboardRoutes from './routes/saDashboardRoutes.js';
+import saLeadRoutes from './routes/saLeadRoutes.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -139,6 +145,14 @@ app.use('/api/b2b', b2bRoutes);
 
 // Unified Approval & Notification System
 app.use('/api/approvals', approvalRoutes);
+
+// Plans & Subscriptions
+app.use('/api/plans', planRoutes);
+app.use('/api/employees', employeeRoutes);
+app.use('/api/onboarding', onboardingRoutes);
+app.use('/api/sa-users', saUserRoutes);
+app.use('/api/sa-dashboard', saDashboardRoutes);
+app.use('/api/sa-leads', saLeadRoutes);
 
 // ─── Cron Health Check ───────────────────────────────────
 app.get('/api/cron-status', (req, res) => {

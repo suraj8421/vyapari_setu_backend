@@ -7,26 +7,35 @@ datasource db {
 }
 
 model User {
-  id                 String              @id @default(uuid())
-  email              String              @unique
-  password           String
-  firstName          String              @map("first_name")
-  lastName           String              @map("last_name")
-  phone              String?
-  role               UserRole            @default(STORE_USER)
-  isActive           Boolean             @default(true) @map("is_active")
-  refreshToken       String?             @map("refresh_token")
-  storeId            String?             @map("store_id")
-  createdAt          DateTime            @default(now()) @map("created_at")
-  updatedAt          DateTime            @updatedAt @map("updated_at")
-  changesApproved    AuditLog[]          @relation("ChangesApproved")
-  changesMade        AuditLog[]          @relation("ChangesMade")
-  expenses           Expense[]
-  ledgerEntries      LedgerEntry[]
-  purchases          Purchase[]
-  sales              Sale[]
-  storeNotifications StoreNotification[]
-  store              Store?              @relation(fields: [storeId], references: [id])
+  id                  String               @id @default(uuid())
+  email               String               @unique
+  password            String
+  firstName           String               @map("first_name")
+  lastName            String               @map("last_name")
+  phone               String?
+  role                UserRole             @default(STORE_USER)
+  isActive            Boolean              @default(true) @map("is_active")
+  refreshToken        String?              @map("refresh_token")
+  storeId             String?              @map("store_id")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  assignedAgentId     String?              @map("assigned_agent_id")
+  userCode            String?              @unique @map("user_code")
+  isDeleted           Boolean              @default(false) @map("is_deleted")
+  notes               String?
+  platformStatus      String               @default("ACTIVE") @map("platform_status")
+  reviewsCount        Int                  @default(0) @map("reviews_count")
+  changesApproved     AuditLog[]           @relation("ChangesApproved")
+  changesMade         AuditLog[]           @relation("ChangesMade")
+  clientSubscriptions ClientSubscription[]
+  expenses            Expense[]
+  ledgerEntries       LedgerEntry[]
+  purchases           Purchase[]
+  sales               Sale[]
+  storeNotifications  StoreNotification[]
+  systemPayments      SystemPayment[]
+  assignedAgent       Employee?            @relation(fields: [assignedAgentId], references: [id])
+  store               Store?               @relation(fields: [storeId], references: [id])
 
   @@index([email])
   @@index([storeId])
@@ -135,8 +144,8 @@ model Customer {
   storeId         String           @map("store_id")
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
-  creditScore     Int              @default(100) @map("credit_score")
   creditCategory  String           @default("Trusted") @map("credit_category")
+  creditScore     Int              @default(100) @map("credit_score")
   customerAccount CustomerAccount?
   store           Store            @relation(fields: [storeId], references: [id])
   ledgerEntries   LedgerEntry[]
@@ -182,7 +191,6 @@ model Sale {
   paymentMethod         PaymentMethod          @default(CASH) @map("payment_method")
   status                SaleStatus             @default(COMPLETED)
   notes                 String?
-  dueDate               DateTime?              @map("due_date")
   expectedDeliveryDate  DateTime?              @map("expected_delivery_date")
   subCategory           String?                @map("sub_category")
   isApproved            Boolean                @default(true) @map("is_approved")
@@ -199,6 +207,7 @@ model Sale {
   storePhone            String?                @map("store_phone")
   storePincode          String?                @map("store_pincode")
   storeState            String?                @map("store_state")
+  dueDate               DateTime?              @map("due_date")
   customerNotifications CustomerNotification[]
   ledgerEntries         LedgerEntry[]
   items                 SaleItem[]
@@ -232,12 +241,12 @@ model SaleItem {
   sgstAmount        Decimal    @default(0) @map("sgst_amount") @db.Decimal(12, 2)
   unit              Unit?
   customUnit        String?    @map("custom_unit")
-  qtyMode           String?    @map("qty_mode")
-  bags              Int?
-  weightPerBag      Decimal?   @map("weight_per_bag") @db.Decimal(12, 2)
-  qtyRaw            String?    @map("qty_raw")
-  qtyList           Json?      @map("qty_list")
   packaging         Json?
+  qtyRaw            String?    @map("qty_raw")
+  bags              Int?
+  qtyMode           String?    @map("qty_mode")
+  weightPerBag      Decimal?   @map("weight_per_bag") @db.Decimal(12, 2)
+  qtyList           Json?      @map("qty_list")
   product           Product    @relation(fields: [productId], references: [id])
   sale              Sale       @relation(fields: [saleId], references: [id], onDelete: Cascade)
   sourceInventory   Inventory? @relation(fields: [sourceInventoryId], references: [id])
@@ -295,23 +304,23 @@ model Purchase {
 }
 
 model PurchaseItem {
-  id         String   @id @default(uuid())
-  quantity   Int
-  unitPrice  Decimal  @map("unit_price") @db.Decimal(12, 2)
-  gstRate    Decimal  @default(0) @map("gst_rate") @db.Decimal(5, 2)
-  gstAmount  Decimal  @default(0) @map("gst_amount") @db.Decimal(12, 2)
-  total      Decimal  @db.Decimal(12, 2)
-  purchaseId String   @map("purchase_id")
-  productId  String   @map("product_id")
-  customUnit String?  @map("custom_unit")
-  qtyMode    String?  @map("qty_mode")
-  bags       Int?
+  id           String   @id @default(uuid())
+  quantity     Int
+  unitPrice    Decimal  @map("unit_price") @db.Decimal(12, 2)
+  gstRate      Decimal  @default(0) @map("gst_rate") @db.Decimal(5, 2)
+  gstAmount    Decimal  @default(0) @map("gst_amount") @db.Decimal(12, 2)
+  total        Decimal  @db.Decimal(12, 2)
+  purchaseId   String   @map("purchase_id")
+  productId    String   @map("product_id")
+  customUnit   String?  @map("custom_unit")
+  packaging    Json?
+  qtyRaw       String?  @map("qty_raw")
+  bags         Int?
+  qtyMode      String?  @map("qty_mode")
   weightPerBag Decimal? @map("weight_per_bag") @db.Decimal(12, 2)
-  qtyRaw     String?  @map("qty_raw")
-  qtyList    Json?    @map("qty_list")
-  packaging  Json?
-  product    Product  @relation(fields: [productId], references: [id])
-  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  qtyList      Json?    @map("qty_list")
+  product      Product  @relation(fields: [productId], references: [id])
+  purchase     Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
 
   @@index([purchaseId])
   @@index([productId])
@@ -506,6 +515,154 @@ model ApprovalNotification {
   @@map("approval_notifications")
 }
 
+model SuperAdmin {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("super_admins")
+}
+
+model Employee {
+  id            String       @id @default(uuid())
+  code          String       @unique
+  name          String
+  email         String       @unique
+  phone         String?
+  password      String
+  role          EmployeeRole @default(AGENT)
+  state         String?
+  isActive      Boolean      @default(true) @map("is_active")
+  managerId     String?      @map("manager_id")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  city          String?
+  incentive     Decimal?     @db.Decimal(12, 2)
+  isDeleted     Boolean      @default(false) @map("is_deleted")
+  joiningDate   DateTime?    @map("joining_date")
+  notes         String?
+  profileImage  String?      @map("profile_image")
+  salary        Decimal?     @db.Decimal(12, 2)
+  targetAmount  Decimal?     @map("target_amount") @db.Decimal(12, 2)
+  zone          String?
+  manager       Employee?    @relation("ManagerToEmployee", fields: [managerId], references: [id])
+  subordinates  Employee[]   @relation("ManagerToEmployee")
+  leads         Lead[]
+  onboardings   Onboarding[]
+  assignedUsers User[]
+
+  @@index([managerId])
+  @@map("employees")
+}
+
+model SubscriptionPlan {
+  id             String               @id @default(uuid())
+  name           String               @unique
+  price          Decimal              @db.Decimal(12, 2)
+  durationMonths Int                  @map("duration_months")
+  features       Json
+  isActive       Boolean              @default(true) @map("is_active")
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  subscriptions  ClientSubscription[]
+  onboardings    Onboarding[]
+
+  @@map("subscription_plans")
+}
+
+model ClientSubscription {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  planId    String           @map("plan_id")
+  startDate DateTime         @map("start_date")
+  endDate   DateTime         @map("end_date")
+  status    SubStatus        @default(ACTIVE)
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  plan      SubscriptionPlan @relation(fields: [planId], references: [id])
+  user      User             @relation(fields: [userId], references: [id])
+  payments  SystemPayment[]
+
+  @@index([userId])
+  @@index([planId])
+  @@map("client_subscriptions")
+}
+
+model Lead {
+  id           String     @id @default(uuid())
+  businessName String     @map("business_name")
+  contactName  String     @map("contact_name")
+  phone        String
+  email        String?
+  source       String?
+  status       LeadStatus @default(NEW)
+  assignedToId String?    @map("assigned_to_id")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  employee     Employee?  @relation(fields: [assignedToId], references: [id])
+
+  @@index([assignedToId])
+  @@map("leads")
+}
+
+model SystemPayment {
+  id             String              @id @default(uuid())
+  amount         Decimal             @db.Decimal(12, 2)
+  method         SystemPaymentMethod @default(CASH)
+  status         SysPaymentStatus    @default(PENDING)
+  paymentId      String?             @map("payment_id")
+  subscriptionId String?             @map("subscription_id")
+  loggedById     String?             @map("logged_by_id")
+  userId         String              @map("user_id")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  subscription   ClientSubscription? @relation(fields: [subscriptionId], references: [id])
+  user           User                @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([subscriptionId])
+  @@map("system_payments")
+}
+
+model Onboarding {
+  id               String                  @id @default(uuid())
+  ownerName        String                  @map("owner_name")
+  phoneNumber      String                  @map("phone_number")
+  alternatePhone   String?                 @map("alternate_phone")
+  email            String?
+  businessName     String                  @map("business_name")
+  businessCategory String?                 @map("business_category")
+  state            String
+  city             String
+  address          String
+  pincode          String
+  landmark         String?
+  notes            String?
+  planId           String?                 @map("plan_id")
+  planDuration     Int?                    @map("plan_duration")
+  planPrice        Decimal?                @db.Decimal(12, 2)
+  discountAmount   Decimal?                @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  discountReason   String?                 @map("discount_reason")
+  totalAmount      Decimal?                @map("total_amount") @db.Decimal(12, 2)
+  amountReceived   Decimal?                @default(0) @map("amount_received") @db.Decimal(12, 2)
+  dueAmount        Decimal?                @default(0) @map("due_amount") @db.Decimal(12, 2)
+  paymentMethod    String?                 @map("payment_method")
+  paymentStatus    OnboardingPaymentStatus @default(PENDING) @map("payment_status")
+  transactionId    String?                 @map("transaction_id")
+  collectedById    String?                 @map("collected_by_id")
+  paymentProofUrl  String?                 @map("payment_proof_url")
+  pricingNotes     String?                 @map("pricing_notes")
+  status           OnboardingStatus        @default(DRAFT)
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+  collectedBy      Employee?               @relation(fields: [collectedById], references: [id])
+  plan             SubscriptionPlan?       @relation(fields: [planId], references: [id])
+
+  @@map("onboardings")
+}
+
 enum UserRole {
   ADMIN
   STORE_USER
@@ -591,4 +748,54 @@ enum StoreNotificationType {
   CHAT_MESSAGE
   CONNECTION_REQUEST
   CONNECTION_ACCEPTED
+}
+
+enum EmployeeRole {
+  AGENT
+  BDE
+  TL
+  ASM
+  RH
+}
+
+enum SubStatus {
+  ACTIVE
+  PENDING
+  INACTIVE
+  CANCELLED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  LOST
+  CONVERTED
+}
+
+enum SystemPaymentMethod {
+  RAZORPAY
+  CASH
+  LINK
+}
+
+enum SysPaymentStatus {
+  SUCCESS
+  PENDING
+  FAILED
+}
+
+enum OnboardingStatus {
+  DRAFT
+  PENDING_VERIFICATION
+  PAYMENT_PENDING
+  APPROVED
+  COMPLETED
+  REJECTED
+}
+
+enum OnboardingPaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
 }

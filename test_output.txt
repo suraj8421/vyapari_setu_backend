@@ -1,0 +1,74 @@
+Error: 
+Invalid `prisma.user.create()` invocation:
+
+{
+  data: {
+    firstName: "sooraj",
+    lastName: "kumar",
+    phone: "9909909900",
+    email: "test1774281898909@gmail.com",
+    password: "$2a$10$QmvAEiK/WhX.S.D5sjlytuBVb1VtlYlDDdGlnhTWJfV4/kDs5DHNG",
+    role: "STORE_USER",
+    platformStatus: "ACTIVE",
+    ~~~~~~~~~~~~~~
+?   id?: String,
+?   isActive?: Boolean,
+?   refreshToken?: String | Null,
+?   createdAt?: DateTime,
+?   updatedAt?: DateTime,
+?   userCode?: String | Null,
+?   changesApproved?: AuditLogCreateNestedManyWithoutApprovedByInput,
+?   changesMade?: AuditLogCreateNestedManyWithoutChangedByInput,
+?   expenses?: ExpenseCreateNestedManyWithoutRecordedByInput,
+?   ledgerEntries?: LedgerEntryCreateNestedManyWithoutRecordedByInput,
+?   purchases?: PurchaseCreateNestedManyWithoutCreatedByInput,
+?   sales?: SaleCreateNestedManyWithoutSoldByInput,
+?   storeNotifications?: StoreNotificationCreateNestedManyWithoutUserInput,
+?   store?: StoreCreateNestedOneWithoutUsersInput,
+?   assignedAgent?: EmployeeCreateNestedOneWithoutAssignedUsersInput,
+?   clientSubscriptions?: ClientSubscriptionCreateNestedManyWithoutUserInput,
+?   systemPayments?: SystemPaymentCreateNestedManyWithoutUserInput
+  }
+}
+
+Unknown argument `platformStatus`. Available options are marked with ?.
+Stack: PrismaClientValidationError: 
+Invalid `prisma.user.create()` invocation:
+
+{
+  data: {
+    firstName: "sooraj",
+    lastName: "kumar",
+    phone: "9909909900",
+    email: "test1774281898909@gmail.com",
+    password: "$2a$10$QmvAEiK/WhX.S.D5sjlytuBVb1VtlYlDDdGlnhTWJfV4/kDs5DHNG",
+    role: "STORE_USER",
+    platformStatus: "ACTIVE",
+    ~~~~~~~~~~~~~~
+?   id?: String,
+?   isActive?: Boolean,
+?   refreshToken?: String | Null,
+?   createdAt?: DateTime,
+?   updatedAt?: DateTime,
+?   userCode?: String | Null,
+?   changesApproved?: AuditLogCreateNestedManyWithoutApprovedByInput,
+?   changesMade?: AuditLogCreateNestedManyWithoutChangedByInput,
+?   expenses?: ExpenseCreateNestedManyWithoutRecordedByInput,
+?   ledgerEntries?: LedgerEntryCreateNestedManyWithoutRecordedByInput,
+?   purchases?: PurchaseCreateNestedManyWithoutCreatedByInput,
+?   sales?: SaleCreateNestedManyWithoutSoldByInput,
+?   storeNotifications?: StoreNotificationCreateNestedManyWithoutUserInput,
+?   store?: StoreCreateNestedOneWithoutUsersInput,
+?   assignedAgent?: EmployeeCreateNestedOneWithoutAssignedUsersInput,
+?   clientSubscriptions?: ClientSubscriptionCreateNestedManyWithoutUserInput,
+?   systemPayments?: SystemPaymentCreateNestedManyWithoutUserInput
+  }
+}
+
+Unknown argument `platformStatus`. Available options are marked with ?.
+    at ar (C:\Users\suyog nikam\Desktop\vyaparisetu\backend\node_modules\@prisma\client\runtime\client.js:10:1374)
+    at Gr.handleRequestError (C:\Users\suyog nikam\Desktop\vyaparisetu\backend\node_modules\@prisma\client\runtime\client.js:65:7929)
+    at Gr.handleAndLogRequestError (C:\Users\suyog nikam\Desktop\vyaparisetu\backend\node_modules\@prisma\client\runtime\client.js:65:7581)
+    at Gr.request (C:\Users\suyog nikam\Desktop\vyaparisetu\backend\node_modules\@prisma\client\runtime\client.js:65:7288)
+    at async a (C:\Users\suyog nikam\Desktop\vyaparisetu\backend\node_modules\@prisma\client\runtime\client.js:75:6730)
+    at async testCreate (file:///C:/Users/suyog%20nikam/Desktop/vyaparisetu/backend/test_create_user.js:9:22)

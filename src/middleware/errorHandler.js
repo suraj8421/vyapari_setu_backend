@@ -47,6 +47,6 @@ export default function errorHandler(err, req, res, _next) {
     }
 
     // Default server error
-    const message = config.nodeEnv === 'development' ? err.message : 'Internal server error';
+    const message = err.message || 'Internal server error';
     return error(res, message, err.statusCode || 500);
 }

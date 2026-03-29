@@ -42,7 +42,7 @@ const saleController = {
     async updateStatus(req, res, next) {
         try {
             const sale = await saleService.updateStatus(req.params.id, req.body, req.user);
-            const message = req.user.role === 'ADMIN'
+            const message = (req.user.role === 'ADMIN' || req.user.role === 'SUPERADMIN')
                 ? 'Sale updated'
                 : 'Update request submitted for administrator approval';
             return success(res, sale, message);
