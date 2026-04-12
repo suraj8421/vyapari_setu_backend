@@ -16,9 +16,12 @@ export const registerSchema = z.object({
     password: z.string().min(6, 'Password must be at least 6 characters'),
     firstName: z.string().min(1, 'First name is required').max(50),
     lastName: z.string().min(1, 'Last name is required').max(50),
-    phone: z.string().optional(),
+    phone: z.string().min(10, 'Valid phone number is required'),
     role: z.enum(['ADMIN', 'STORE_USER']).optional(),
     storeId: z.string().uuid().optional(),
+    storeName: z.string().min(1, 'Store name is required').optional(), // Optional to support staff registration too
+    planId: z.string().uuid().optional(),
+    employeeCode: z.string().optional(),
 });
 
 export const refreshTokenSchema = z.object({

@@ -58,6 +58,7 @@ model Store {
   customers             Customer[]
   expenses              Expense[]
   inventory             Inventory[]
+  ledger_entries        LedgerEntry[]
   products              Product[]
   purchases             Purchase[]
   sales                 Sale[]
@@ -77,8 +78,8 @@ model Product {
   id                String             @id @default(uuid())
   name              String
   description       String?
-  sku               String             @unique
-  barcode           String?            @unique
+  sku               String
+  barcode           String?
   category          String?
   costPrice         Decimal            @map("cost_price") @db.Decimal(12, 2)
   sellingPrice      Decimal            @map("selling_price") @db.Decimal(12, 2)
@@ -97,6 +98,8 @@ model Product {
   saleItems         SaleItem[]
   storeInvoiceItems StoreInvoiceItem[]
 
+  @@unique([storeId, sku])
+  @@unique([storeId, barcode])
   @@index([sku])
   @@index([barcode])
   @@index([storeId])
@@ -150,6 +153,7 @@ model Customer {
   store           Store            @relation(fields: [storeId], references: [id])
   ledgerEntries   LedgerEntry[]
   sales           Sale[]
+  onlinePayments  OnlinePayment[]
 
   @@index([phone])
   @@index([name])
@@ -170,19 +174,21 @@ model LedgerEntry {
   saleId        String?       @map("sale_id")
   recordedById  String        @map("recorded_by_id")
   createdAt     DateTime      @default(now()) @map("created_at")
+  store_id      String?
   customer      Customer      @relation(fields: [customerId], references: [id])
   recordedBy    User          @relation(fields: [recordedById], references: [id])
   sale          Sale?         @relation(fields: [saleId], references: [id])
+  stores        Store?        @relation(fields: [store_id], references: [id])
 
   @@index([customerId])
   @@index([saleId])
   @@index([createdAt])
+  @@index([store_id])
   @@map("ledger_entries")
 }
 
 model Sale {
   id                    String                 @id @default(uuid())
-  clientId              String?                @unique @map("client_id")
   invoiceNumber         String                 @unique @map("invoice_number")
   subtotal              Decimal                @db.Decimal(12, 2)
   taxAmount             Decimal                @default(0) @map("tax_amount") @db.Decimal(12, 2)
@@ -209,6 +215,7 @@ model Sale {
   storePincode          String?                @map("store_pincode")
   storeState            String?                @map("store_state")
   dueDate               DateTime?              @map("due_date")
+  clientId              String?                @unique @map("client_id")
   customerNotifications CustomerNotification[]
   ledgerEntries         LedgerEntry[]
   items                 SaleItem[]
@@ -249,6 +256,7 @@ model SaleItem {
   qtyMode           String?    @map("qty_mode")
   weightPerBag      Decimal?   @map("weight_per_bag") @db.Decimal(12, 2)
   qtyList           Json?      @map("qty_list")
+  returned          Boolean    @default(false)
   product           Product    @relation(fields: [productId], references: [id])
   sale              Sale       @relation(fields: [saleId], references: [id], onDelete: Cascade)
   sourceInventory   Inventory? @relation(fields: [sourceInventoryId], references: [id])
@@ -699,6 +707,7 @@ enum PaymentMethod {
   CARD
   BANK_TRANSFER
   CREDIT
+  ONLINE
   OTHER
 }
 
@@ -800,4 +809,42 @@ enum OnboardingPaymentStatus {
   PENDING
   PARTIAL
   PAID
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum FeeType {
+  OWNER
+  CUSTOMER
+  SPLIT
+}
+
+model OnlinePayment {
+  id              String        @id @default(uuid())
+  customerId      String        @map("customer_id")
+  amount          Decimal       @db.Decimal(12, 2)
+  feeAmount       Decimal       @default(0) @map("fee_amount") @db.Decimal(12, 2)
+  totalAmount     Decimal       @map("total_amount") @db.Decimal(12, 2)
+  status          PaymentStatus @default(PENDING)
+  method          PaymentMethod @default(ONLINE)
+  razorpayOrderId String?       @unique @map("razorpay_order_id")
+  razorpayPayId   String?       @unique @map("razorpay_pay_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  @@map("online_payments")
+}
+
+model PaymentSettings {
+  id             String   @id @default("global-settings")
+  feeType        FeeType  @default(OWNER) @map("fee_type")
+  razorpayActive Boolean  @default(true) @map("razorpay_active")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("payment_settings")
 }

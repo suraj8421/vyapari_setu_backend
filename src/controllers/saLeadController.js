@@ -50,8 +50,17 @@ export const createLead = async (req, res, next) => {
     try {
         const { businessName, contactName, phone, email, source, status, assignedToId } = req.body;
         const lead = await prisma.lead.create({
-            data: { businessName, contactName, phone, email, source, status, assignedToId }
+            data: { 
+                businessName, 
+                contactName, 
+                phone, 
+                email, 
+                source, 
+                status, 
+                assignedToId: assignedToId === "" ? null : assignedToId 
+            }
         });
+        req.app.locals.io.emit('leads_updated'); // Notify for real-time sidebar refresh
         res.status(201).json({ success: true, data: lead });
     } catch (error) { next(error); }
 };
@@ -61,8 +70,17 @@ export const updateLead = async (req, res, next) => {
         const { businessName, contactName, phone, email, source, status, assignedToId } = req.body;
         const lead = await prisma.lead.update({
             where: { id: req.params.id },
-            data: { businessName, contactName, phone, email, source, status, assignedToId }
+            data: { 
+                businessName, 
+                contactName, 
+                phone, 
+                email, 
+                source, 
+                status, 
+                assignedToId: assignedToId === "" ? null : assignedToId 
+            }
         });
+        req.app.locals.io.emit('leads_updated'); // Notify for real-time sidebar refresh
         res.json({ success: true, data: lead });
     } catch (error) { next(error); }
 };

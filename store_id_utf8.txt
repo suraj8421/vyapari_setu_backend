@@ -1,0 +1,255 @@
+﻿node : C:\Users\suyog nika
+m\Desktop\vyaparisetu\back
+end\node_modules\@prisma\c
+lient\runtime\client.js:70
+At line:1 char:1
++ node 
+scripts/get_store.js > 
+store_id.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: (C  
+  :\Users\suyog ...me\c   
+ lient.js:70:String) [    
+], RemoteException
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+${n}`}var Ul=require("@pri
+sma/client-runtime-utils")
+;function Bl(e){return e.l
+ength===0?Promise.resolve(
+[]):new 
+Promise((t,r)=>{let n=new 
+Array(e.length),i=null,o=!
+1,s=0,a=()=>{o||(s++,s===e
+.length&&(o=!0,i?r(i):t(n)
+))},l=u=>{o||(o=!0,r(u))};
+for(let u=0;u<e.length;u++
+)e[u].then(c=>{n[u]=c,a()}
+,c=>{if(!(0,Ul.hasBatchInd
+ex)(c)){l(c);return}c.batc
+hRequestIdx===u?l(c):(i||(
+i=c),a())})})}var rt=_("pr
+isma:client");typeof globa
+lThis=="object"&&(globalTh
+is.NODE_CLIENT=!0);var Nm=
+{requestArgsToMiddlewareAr
+gs:e=>e,middlewareArgsToRe
+questArgs:e=>e},Wl=Symbol.
+for("prisma.client.transac
+tion.scope_context");funct
+ion Ql(e){let 
+r=e[Wl];if(r===void 0)retu
+rn{kind:"top-level"};if(Dm
+(r))return r;throw new 
+Error("Internal error: 
+inconsistent transaction 
+scope context.")}function 
+Dm(e){if(typeof e!="object
+"||e===null)return!1;let 
+t=e;return 
+t.kind==="nested"&&typeof 
+t.txId=="string"&&typeof t
+.scopeId=="string"&&Mm(t.s
+copeState)}function 
+Mm(e){return typeof e!="ob
+ject"||e===null?!1:Array.i
+sArray(e.stack)}function 
+Fm(){return typeof globalT
+his.crypto?.randomUUID=="f
+unction"?globalThis.crypto
+.randomUUID():`${Date.now(
+)}-${Math.random().toStrin
+g(16).slice(2)}`}var _m={i
+d:0,nextId(){return++this.
+id}};function Kl(e){class 
+t{_originalClient=this;_ru
+ntimeDataModel;_requestHan
+dler;_connectionPromise;_d
+isconnectionPromise;_engin
+eConfig;_accelerateEngineC
+onfig;_clientVersion;_erro
+rFormat;_tracingHelper;_pr
+eviewFeatures;_activeProvi
+der;_globalOmit;_extension
+s;_engine;_appliedParent;_
+createPrismaPromise=pi();c
+onstructor(n){if(!n)throw 
+new b.PrismaClientInitiali
+zationError("`PrismaClient
+` needs to be constructed 
+with a non-empty, valid `P
+rismaClientOptions`:\n\n``
+`\nnew PrismaClient({\n  .
+..\n})\n```\n\nor\n\n```\n
+constructor() {\n  
+super({ ... });\n}\n```\n 
+         ",yi);e=n.__inter
+nal?.configOverride?.(e)??
+e,jl(n,e);let i=new zl.Eve
+ntEmitter().on("error",()=
+>{});this._extensions=Qe.e
+mpty(),this._previewFeatur
+es=e.previewFeatures,this.
+_clientVersion=e.clientVer
+sion??yi,this._activeProvi
+der=e.activeProvider,this.
+_globalOmit=n?.omit,this._
+tracingHelper=kl();let o;i
+f(n.adapter){o=n.adapter;l
+et s=e.activeProvider==="p
+ostgresql"||e.activeProvid
+er==="cockroachdb"?"postgr
+es":e.activeProvider;if(o.
+provider!==s)throw new b.P
+rismaClientInitializationE
+rror(`The Driver Adapter 
+\`${o.adapterName}\`, 
+based on 
+\`${o.provider}\`, is not 
+compatible with the 
+provider \`${s}\` 
+specified in the Prisma sc
+hema.`,this._clientVersion
+)}try{let s=n??{},l=(s.__i
+nternal??{}).debug===!0;if
+(l&&_.enable("prisma:clien
+t"),s.errorFormat?this._er
+rorFormat=s.errorFormat:pr
+ocess.env.NODE_ENV==="prod
+uction"?this._errorFormat=
+"minimal":process.env.NO_C
+OLOR?this._errorFormat="co
+lorless":this._errorFormat
+="colorless",this._runtime
+DataModel=e.runtimeDataMod
+el,this._engineConfig={ena
+bleDebugLogs:l,logLevel:s.
+log&&Ol(s.log),logQueries:
+s.log&&!!(typeof s.log=="s
+tring"?s.log==="query":s.l
+og.find(u=>typeof u=="stri
+ng"?u==="query":u.level===
+"query")),compilerWasm:e.c
+ompilerWasm,clientVersion:
+e.clientVersion,previewFea
+tures:this._previewFeature
+s,activeProvider:e.activeP
+rovider,inlineSchema:e.inl
+ineSchema,tracingHelper:th
+is._tracingHelper,transact
+ionOptions:{maxWait:s.tran
+sactionOptions?.maxWait??2
+e3,timeout:s.transactionOp
+tions?.timeout??5e3,isolat
+ionLevel:s.transactionOpti
+ons?.isolationLevel},logEm
+itter:i,adapter:o,accelera
+teUrl:s.accelerateUrl,sqlC
+ommenters:s.comments,param
+eterizationSchema:e.parame
+terizationSchema,runtimeDa
+taModel:e.runtimeDataModel
+},this._accelerateEngineCo
+nfig=Object.create(this._e
+ngineConfig),this._acceler
+ateEngineConfig.accelerate
+Utils={resolveDatasourceUr
+l:()=>{if(s.accelerateUrl)
+return 
+s.accelerateUrl;throw new 
+b.PrismaClientInitializati
+onError(`\`accelerateUrl\`
+ is required when using \`
+@prisma/extension-accelera
+te\`:
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+                          
+      
+
+PrismaClientInitialization
+Error: `PrismaClient` 
+needs to be constructed 
+with a non-empty, valid 
+`PrismaClientOptions`:
+
+```
+new PrismaClient({
+  ...
+})
+```
+
+or
+
+```
+constructor() {
+  super({ ... });
+}
+```
+          
+    at new t 
+(C:\Users\suyog nikam\Desk
+top\vyaparisetu\backend\no
+de_modules\@prisma\client\
+runtime\client.js:70:1527)
+    at file:///C:/Users/su
+yog%20nikam/Desktop/vyapar
+isetu/backend/scripts/get_
+store.js:2:16
+    at ModuleJob.run (node
+:internal/modules/esm/modu
+le_job:413:25)
+    at async onImport.trac
+ePromise.__proto__ (node:i
+nternal/modules/esm/loader
+:660:26)
+    at async asyncRunEntry
+PointWithESMLoader (node:i
+nternal/modules/run_main:1
+01:5) {
+  clientVersion: '7.5.0',
+  errorCode: undefined,
+  retryable: undefined
+}
+
+Node.js v24.12.0

@@ -3,7 +3,14 @@
 // ============================================
 
 import dotenv from 'dotenv';
-dotenv.config();
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load from current directory or backend directory fallback
+dotenv.config(); 
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 const config = {
   // Server
@@ -26,6 +33,9 @@ const config = {
 
   // Bcrypt
   bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS, 10) || 12,
+
+  // Gemini
+  geminiKey: process.env.GEMINI_API_KEY,
 };
 
 // ── Security Guard ────────────────────────────────────────────────

@@ -206,7 +206,7 @@ class B2bInvoiceService {
                         data: {
                             storeId: buyerStoreId,
                             name: item.product.name,
-                            sku: item.product.sku + '-B2B', // Prevent strict unique constraints if needed
+                            sku: `${item.product.sku}-B2B-${Date.now()}-${Math.floor(Math.random() * 1000)}`, // Guaranteed unique
                             costPrice: item.price,
                             sellingPrice: item.price * 1.2, // Arbitrary markup
                             gstRate: item.gst

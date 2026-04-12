@@ -12,41 +12,90 @@ class AuthService {
      * Register a new user
      */
     async register(data) {
+        const { employeeCode, storeName, planId, ...userData } = data;
+        let assignedAgentId = null;
+
+        if (employeeCode) {
+            const employee = await prisma.employee.findUnique({
+                where: { code: employeeCode },
+            });
+            if (employee) {
+                assignedAgentId = employee.id;
+            } else {
+                throw { statusCode: 400, message: 'Invalid Employee ID' };
+            }
+        }
+
         const existingUser = await prisma.user.findUnique({
-            where: { email: data.email },
+            where: { email: userData.email },
         });
 
         if (existingUser) {
             throw { statusCode: 409, message: 'Email already registered' };
         }
 
-        const hashedPassword = await bcrypt.hash(data.password, config.bcryptRounds);
+        const hashedPassword = await bcrypt.hash(userData.password, config.bcryptRounds);
 
-        const user = await prisma.user.create({
-            data: {
-                ...data,
-                password: hashedPassword,
-            },
-            select: {
-                id: true,
-                email: true,
-                firstName: true,
-                lastName: true,
-                role: true,
-                storeId: true,
-                createdAt: true,
-            },
+        // Transactional creation of Store and User
+        const result = await prisma.$transaction(async (tx) => {
+            let storeId = userData.storeId;
+            let role = userData.role || 'STORE_USER';
+
+            if (storeName) {
+                const store = await tx.store.create({
+                    data: {
+                        name: storeName,
+                        phone: userData.phone,
+                    }
+                });
+                storeId = store.id;
+                role = 'ADMIN';
+            }
+
+            const user = await tx.user.create({
+                data: {
+                    ...userData,
+                    password: hashedPassword,
+                    assignedAgentId,
+                    storeId,
+                    role,
+                },
+                select: {
+                    id: true,
+                    email: true,
+                    firstName: true,
+                    lastName: true,
+                    role: true,
+                    storeId: true,
+                    assignedAgentId: true,
+                    createdAt: true,
+                },
+            });
+
+            // If a plan was selected, we can record it (optional: create pending sub)
+            if (planId && role === 'ADMIN') {
+                await tx.systemPayment.create({
+                    data: {
+                        userId: user.id,
+                        amount: 0, // Will be updated on actual payment
+                        status: 'PENDING',
+                        method: 'RAZORPAY',
+                    }
+                });
+            }
+
+            return user;
         });
 
-        const tokens = generateTokenPair(user);
+        const tokens = generateTokenPair(result);
 
         // Save refresh token
         await prisma.user.update({
-            where: { id: user.id },
+            where: { id: result.id },
             data: { refreshToken: tokens.refreshToken },
         });
 
-        return { user, ...tokens };
+        return { user: result, ...tokens };
     }
 
     /**

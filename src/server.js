@@ -47,6 +47,7 @@ import onboardingRoutes from './routes/onboardingRoutes.js';
 import saUserRoutes from './routes/saUserRoutes.js';
 import saDashboardRoutes from './routes/saDashboardRoutes.js';
 import saLeadRoutes from './routes/saLeadRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -157,6 +158,7 @@ app.use('/api/onboarding', onboardingRoutes);
 app.use('/api/sa-users', saUserRoutes);
 app.use('/api/sa-dashboard', saDashboardRoutes);
 app.use('/api/sa-leads', saLeadRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // ─── Cron Health Check ───────────────────────────────────
 app.get('/api/cron-status', (req, res) => {
@@ -192,8 +194,7 @@ server.listen(PORT, async () => {
 ║      Vyaparisetu API Server                  ║
 ║      Port: ${PORT}                              ║
 ║      Env:  ${config.nodeEnv.padEnd(17)}        ║
-║      Prisma v7 + ESM                         ║
-║      Host: ${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost'}
+║      AI Key: ${config.geminiKey ? '✅ LOADED' : '❌ MISSING'}            ║
 ╚══════════════════════════════════════════════╝
     `);
 

@@ -33,6 +33,9 @@ router.get('/:id/movement', productController.getMovementHistory);
 // PUT /api/products/:id - Allow authenticated users (Staff & Admin)
 router.put('/:id', validateBody(updateProductSchema), productController.update);
 
+// POST /api/products/:id/adjust - Quick stock update
+router.post('/:id/adjust', productController.adjustStock);
+
 // DELETE /api/products/:id - Admin only
 router.delete('/:id', authorize('ADMIN'), productController.delete);
 

@@ -71,6 +71,16 @@ const productController = {
         }
     },
 
+    async adjustStock(req, res, next) {
+        try {
+            const storeId = req.user.storeId;
+            const product = await productService.adjustStock(req.params.id, { ...req.body, storeId });
+            return success(res, product, 'Inventory adjusted successfully');
+        } catch (err) {
+            next(err);
+        }
+    },
+
     async getLowStock(req, res, next) {
         try {
             const storeId = req.user.role === 'STORE_USER' ? req.user.storeId : null;

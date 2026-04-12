@@ -31,8 +31,9 @@ const scannerController = {
         try {
             if (!req.file) return res.status(400).json({ success: false, message: 'Image file required' });
 
+            const { contextType } = req.body;
             const storeId = req.user.role === 'STORE_USER' ? req.user.storeId : req.body.storeId;
-            const result = await scannerService.processProductImage(req.file.buffer, req.file.mimetype, storeId);
+            const result = await scannerService.processProductImage(req.file.buffer, req.file.mimetype, storeId, contextType);
 
             return success(res, result, 'Image processed successfully');
         } catch (err) {
@@ -44,8 +45,9 @@ const scannerController = {
         try {
             if (!req.file) return res.status(400).json({ success: false, message: 'Document file required' });
 
+            const { contextType } = req.body;
             const storeId = req.user.role === 'STORE_USER' ? req.user.storeId : req.body.storeId;
-            const result = await scannerService.processDocument(req.file.buffer, req.file.mimetype, storeId);
+            const result = await scannerService.processDocument(req.file.buffer, req.file.mimetype, storeId, contextType);
 
             return success(res, result, 'Document processed successfully');
         } catch (err) {

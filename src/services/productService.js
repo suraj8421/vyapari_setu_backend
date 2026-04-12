@@ -12,6 +12,11 @@ class ProductService {
     async create(data) {
         const { initialStock, minStockLevel, maxStockLevel, batchNumber, expiryDate, location, ...productData } = data;
 
+        // Normalize empty strings to null for unique/optional fields
+        if (productData.barcode === '') productData.barcode = null;
+        if (productData.category === '') productData.category = null;
+        if (productData.hsnCode === '') productData.hsnCode = null;
+
         return prisma.$transaction(async (tx) => {
             const product = await tx.product.create({
                 data: productData,
@@ -48,7 +53,11 @@ class ProductService {
         if (storeId) where.storeId = storeId;
         if (query.storeId) where.storeId = query.storeId;
         if (query.category) where.category = query.category;
-        if (query.isActive !== undefined) where.isActive = query.isActive === 'true';
+        if (query.isActive !== undefined) {
+            where.isActive = query.isActive === 'true';
+        } else {
+            where.isActive = true;
+        }
 
         if (query.search) {
             where.OR = [
@@ -111,6 +120,11 @@ class ProductService {
      */
     async update(id, data) {
         const { initialStock, minStockLevel, maxStockLevel, batchNumber, expiryDate, location, ...productData } = data;
+
+        // Normalize empty strings to null for unique/optional fields
+        if (productData.barcode === '') productData.barcode = null;
+        if (productData.category === '') productData.category = null;
+        if (productData.hsnCode === '') productData.hsnCode = null;
 
         return prisma.$transaction(async (tx) => {
             const product = await tx.product.update({
@@ -263,6 +277,36 @@ class ProductService {
         // Sort completely descending by date
         history.sort((a, b) => new Date(b.date) - new Date(a.date));
         return history;
+    }
+
+    /**
+     * Manual Stock Adjustment (Quick Restock)
+     */
+    async adjustStock(id, data) {
+        const { quantity, type, reference, storeId } = data; // type: 'ADD' | 'SUBTRACT'
+        const adjustment = type === 'SUBTRACT' ? -Math.abs(quantity) : Math.abs(quantity);
+
+        return prisma.$transaction(async (tx) => {
+            const existingInventory = await tx.inventory.findFirst({
+                where: { productId: id, storeId }
+            });
+
+            if (!existingInventory) {
+                return tx.inventory.create({
+                    data: {
+                        productId: id,
+                        storeId,
+                        quantity: adjustment,
+                        minStockLevel: 10
+                    }
+                });
+            }
+
+            return tx.inventory.update({
+                where: { id: existingInventory.id },
+                data: { quantity: { increment: adjustment } }
+            });
+        });
     }
 }
 

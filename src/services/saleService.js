@@ -285,13 +285,14 @@ class SaleService {
     }
 
     /**
-     * FIX: Update sale status (RETURNED / PARTIAL_RETURN).
-     * Previously there was no API endpoint to change a sale's status despite
-     * RETURNED and PARTIAL_RETURN existing in the SaleStatus enum.
-     * When a sale is marked RETURNED, stock is added back to inventory.
+     * Update sale status (RETURNED / PARTIAL_RETURN).
+     * When a sale is returned:
+     *   1. Stock is restored to inventory for returned items.
+     *   2. A DEBIT ledger entry is created to reduce the customer's khata balance.
+     *   3. The customer's balance field is updated accordingly.
      */
     async updateStatus(id, data, user) {
-        const { status, notes } = data;
+        const { status, notes, returnedItemIds } = data;
         const allowedStatuses = ['COMPLETED', 'RETURNED', 'PARTIAL_RETURN'];
         if (!allowedStatuses.includes(status)) {
             throw new AppError(`Invalid status: ${status}`, 400);
@@ -300,7 +301,10 @@ class SaleService {
         return prisma.$transaction(async (tx) => {
             const sale = await tx.sale.findUnique({
                 where: { id },
-                include: { items: true }
+                include: {
+                    items: true,
+                    customer: true,
+                }
             });
             if (!sale) throw new AppError('Sale not found', 404);
 
@@ -309,19 +313,62 @@ class SaleService {
                 data: { status, notes: notes || sale.notes }
             });
 
-            // If the sale is being returned, add stock back to inventory
-            if (status === 'RETURNED') {
-                for (const item of sale.items) {
-                    const inv = await tx.inventory.findFirst({
-                        where: { productId: item.productId, storeId: sale.storeId }
+            // Determine which items are being returned
+            // For RETURNED: all items. For PARTIAL_RETURN: only the selected ones.
+            const itemsToReturn = (status === 'RETURNED' || !returnedItemIds || returnedItemIds.length === 0)
+                ? sale.items
+                : sale.items.filter(item => returnedItemIds.includes(item.id));
+
+            if (itemsToReturn.length === 0) return updated;
+
+            // 1. Restore stock for returned items AND mark them as returned
+            for (const item of itemsToReturn) {
+                const inv = await tx.inventory.findFirst({
+                    where: { productId: item.productId, storeId: sale.storeId }
+                });
+                if (inv) {
+                    await tx.inventory.update({
+                        where: { id: inv.id },
+                        data: { quantity: { increment: item.quantity } }
                     });
-                    if (inv) {
-                        await tx.inventory.update({
-                            where: { id: inv.id },
-                            data: { quantity: { increment: item.quantity } }
-                        });
-                    }
                 }
+                // Mark the sale item as returned so the invoice viewer can show it
+                await tx.saleItem.update({
+                    where: { id: item.id },
+                    data: { returned: true }
+                });
+            }
+
+            // 2. Calculate the amount being returned
+            const returnedAmount = itemsToReturn.reduce((sum, item) => sum + Number(item.total || 0), 0);
+
+            if (returnedAmount > 0 && sale.customerId) {
+                const customer = sale.customer;
+                const currentBalance = Number(customer?.balance || 0);
+                const newBalance = currentBalance - returnedAmount;
+
+                // 3. Create a DEBIT ledger entry (reduces what customer owes)
+                await tx.ledgerEntry.create({
+                    data: {
+                        customerId: sale.customerId,
+                        saleId: sale.id,
+                        type: 'DEBIT',
+                        amount: returnedAmount,
+                        paymentMethod: 'CASH',
+                        description: `[RETURN] Invoice ${sale.invoiceNumber} — ${itemsToReturn.length} item${itemsToReturn.length > 1 ? 's' : ''} returned`,
+                        balanceAfter: newBalance,
+                        recordedById: user?.id || null,
+                    }
+                });
+
+                // 4. Update customer balance
+                await tx.customer.update({
+                    where: { id: sale.customerId },
+                    data: { balance: newBalance }
+                });
+
+                // Recalculate credit score async (non-blocking)
+                creditScoreService.calculateAndSaveScore(sale.customerId).catch(() => {});
             }
 
             return updated;
