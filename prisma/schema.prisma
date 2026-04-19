@@ -25,6 +25,8 @@ model User {
   notes               String?
   platformStatus      String               @default("ACTIVE") @map("platform_status")
   reviewsCount        Int                  @default(0) @map("reviews_count")
+  resetPasswordExpiry DateTime?            @map("reset_password_expiry")
+  resetPasswordToken  String?              @map("reset_password_token")
   changesApproved     AuditLog[]           @relation("ChangesApproved")
   changesMade         AuditLog[]           @relation("ChangesMade")
   clientSubscriptions ClientSubscription[]
@@ -152,8 +154,8 @@ model Customer {
   customerAccount CustomerAccount?
   store           Store            @relation(fields: [storeId], references: [id])
   ledgerEntries   LedgerEntry[]
-  sales           Sale[]
   onlinePayments  OnlinePayment[]
+  sales           Sale[]
 
   @@index([phone])
   @@index([name])
@@ -673,6 +675,45 @@ model Onboarding {
   @@map("onboardings")
 }
 
+model OnlinePayment {
+  id              String        @id @default(uuid())
+  customerId      String        @map("customer_id")
+  amount          Decimal       @db.Decimal(12, 2)
+  feeAmount       Decimal       @default(0) @map("fee_amount") @db.Decimal(12, 2)
+  totalAmount     Decimal       @map("total_amount") @db.Decimal(12, 2)
+  status          PaymentStatus @default(PENDING)
+  method          PaymentMethod @default(ONLINE)
+  razorpayOrderId String?       @unique @map("razorpay_order_id")
+  razorpayPayId   String?       @unique @map("razorpay_pay_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  customer        Customer      @relation(fields: [customerId], references: [id])
+
+  @@map("online_payments")
+}
+
+model PaymentSettings {
+  id             String   @id @default("global-settings")
+  feeType        FeeType  @default(OWNER) @map("fee_type")
+  razorpayActive Boolean  @default(true) @map("razorpay_active")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("payment_settings")
+}
+
+model VendorPattern {
+  id         String   @id @default(uuid())
+  vendorName String   @unique @map("vendor_name")
+  headers    Json
+  count      Int      @default(1)
+  confidence Decimal  @default(1.0) @db.Decimal(3, 2)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([vendorName])
+  @@map("vendor_patterns")
+}
+
 enum UserRole {
   ADMIN
   STORE_USER
@@ -707,8 +748,8 @@ enum PaymentMethod {
   CARD
   BANK_TRANSFER
   CREDIT
-  ONLINE
   OTHER
+  ONLINE
 }
 
 enum SaleStatus {
@@ -821,30 +862,4 @@ enum FeeType {
   OWNER
   CUSTOMER
   SPLIT
-}
-
-model OnlinePayment {
-  id              String        @id @default(uuid())
-  customerId      String        @map("customer_id")
-  amount          Decimal       @db.Decimal(12, 2)
-  feeAmount       Decimal       @default(0) @map("fee_amount") @db.Decimal(12, 2)
-  totalAmount     Decimal       @map("total_amount") @db.Decimal(12, 2)
-  status          PaymentStatus @default(PENDING)
-  method          PaymentMethod @default(ONLINE)
-  razorpayOrderId String?       @unique @map("razorpay_order_id")
-  razorpayPayId   String?       @unique @map("razorpay_pay_id")
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
-
-  customer        Customer      @relation(fields: [customerId], references: [id])
-  @@map("online_payments")
-}
-
-model PaymentSettings {
-  id             String   @id @default("global-settings")
-  feeType        FeeType  @default(OWNER) @map("fee_type")
-  razorpayActive Boolean  @default(true) @map("razorpay_active")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  @@map("payment_settings")
 }

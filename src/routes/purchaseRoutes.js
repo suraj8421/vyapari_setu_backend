@@ -7,7 +7,6 @@ import purchaseController from '../controllers/purchaseController.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { createPurchaseSchema } from '../validators/schemas.js';
-
 const router = express.Router();
 
 router.use(authenticate);

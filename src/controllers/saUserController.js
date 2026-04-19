@@ -146,7 +146,7 @@ export const createUser = async (req, res, next) => {
         const { 
             firstName, lastName, phone, email, password, 
             platformStatus, notes, assignedAgentId, role = 'STORE_USER', 
-            storeDetails, planId 
+            storeDetails, planId, paymentMethod = 'CASH', amountReceived 
         } = req.body;
         
         const existing = await prisma.user.findFirst({ where: { email } });

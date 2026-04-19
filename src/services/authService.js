@@ -3,6 +3,7 @@
 // ============================================
 
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import prisma from '../config/database.js';
 import config from '../config/index.js';
 import { generateTokenPair, verifyRefreshToken } from '../utils/jwt.js';
@@ -36,7 +37,7 @@ class AuthService {
 
         const hashedPassword = await bcrypt.hash(userData.password, config.bcryptRounds);
 
-        // Transactional creation of Store and User
+        // Transactional creation of Store, User, and Subscription
         const result = await prisma.$transaction(async (tx) => {
             let storeId = userData.storeId;
             let role = userData.role || 'STORE_USER';
@@ -72,16 +73,36 @@ class AuthService {
                 },
             });
 
-            // If a plan was selected, we can record it (optional: create pending sub)
+            // ─── If Plan Selected, Provision Subscription ──────────────────
             if (planId && role === 'ADMIN') {
-                await tx.systemPayment.create({
-                    data: {
-                        userId: user.id,
-                        amount: 0, // Will be updated on actual payment
-                        status: 'PENDING',
-                        method: 'RAZORPAY',
-                    }
-                });
+                const plan = await tx.subscriptionPlan.findUnique({ where: { id: planId } });
+                if (plan) {
+                    const start = new Date();
+                    const end = new Date();
+                    end.setMonth(end.getMonth() + plan.durationMonths);
+
+                    const sub = await tx.clientSubscription.create({
+                        data: {
+                            userId: user.id,
+                            planId: plan.id,
+                            startDate: start,
+                            endDate: end,
+                            status: 'ACTIVE' // Automatically active on onboarding/conversion
+                        }
+                    });
+
+                    // Record initial payment record
+                    await tx.systemPayment.create({
+                        data: {
+                            userId: user.id,
+                            amount: plan.price,
+                            status: 'SUCCESS', // Marking as success for onboarding simplicity
+                            method: 'OFFLINE',
+                            subscriptionId: sub.id,
+                            paymentId: 'ONBOARDING_PROVISION'
+                        }
+                    });
+                }
             }
 
             return user;
@@ -181,50 +202,139 @@ class AuthService {
         if (userId === 'super-admin-001') {
             return {
                 id: 'super-admin-001',
-                email: 'super@vyaparisetu.com',
-                firstName: 'System',
+                email: 'admin@khata.com',
+                firstName: 'Super',
                 lastName: 'Admin',
-                phone: '0000000000',
+                phone: '9876543210',
                 role: 'SUPERADMIN',
                 storeId: null,
                 store: null,
                 isActive: true,
                 createdAt: new Date(),
+                activePlan: 'Enterprise (Mock)'
             };
         }
 
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: {
-                id: true,
-                email: true,
-                firstName: true,
-                lastName: true,
-                phone: true,
-                role: true,
-                storeId: true,
-                store: {
-                    select: { 
-                        id: true, 
-                        name: true,
-                        address: true,
-                        city: true,
-                        state: true,
-                        pincode: true,
-                        phone: true,
-                        gstNumber: true
-                    },
-                },
-                isActive: true,
-                createdAt: true,
-            },
+            include: {
+                store: true,
+                clientSubscriptions: {
+                    where: { status: 'ACTIVE' },
+                    include: { plan: true },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1
+                }
+            }
         });
 
         if (!user) {
             throw { statusCode: 404, message: 'User not found' };
         }
 
-        return user;
+        // Extract active subscription details
+        const activeSub = user.clientSubscriptions?.[0];
+        const activePlan = activeSub?.plan;
+        
+        // Remove sensitive fields
+        const { password, refreshToken, ...safeUser } = user;
+
+        return {
+            ...safeUser,
+            subscription: activeSub ? {
+                planName: activePlan.name,
+                price: activePlan.price,
+                expiryDate: activeSub.endDate,
+                durationMonths: activePlan.durationMonths,
+                features: activePlan.features,
+                status: activeSub.status
+            } : null,
+            activePlan: activePlan?.name || 'FREE' // Legacy support
+        };
+    }
+
+    /**
+     * Change user password
+     */
+    async changePassword(userId, { currentPassword, newPassword }) {
+        if (userId === 'super-admin-001') {
+            throw { statusCode: 403, message: 'Cannot change password for mock Super Admin' };
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+        });
+
+        if (!user) {
+            throw { statusCode: 404, message: 'User not found' };
+        }
+
+        const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isPasswordValid) {
+            throw { statusCode: 401, message: 'Current password is incorrect' };
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, config.bcryptRounds);
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { password: hashedPassword },
+        });
+    }
+
+    /**
+     * Generate reset token for forgot password (by email or phone)
+     */
+    async forgotPassword(identifier) {
+        // identifier can be { email: '...' } or { phone: '...' }
+        const where = {};
+        if (identifier.email) where.email = identifier.email;
+        if (identifier.phone) where.phone = identifier.phone;
+
+        const user = await prisma.user.findFirst({ where });
+        if (!user) {
+            throw { statusCode: 404, message: 'Account not found with this identifier' };
+        }
+
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiry = new Date(Date.now() + 3600000); // 1 hour
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                resetPasswordToken: token,
+                resetPasswordExpiry: expiry
+            }
+        });
+
+        return { token };
+    }
+
+    /**
+     * Reset password using token
+     */
+    async resetPassword(token, newPassword) {
+        const user = await prisma.user.findFirst({
+            where: {
+                resetPasswordToken: token,
+                resetPasswordExpiry: { gt: new Date() }
+            }
+        });
+
+        if (!user) {
+            throw { statusCode: 400, message: 'Invalid or expired reset token' };
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, config.bcryptRounds);
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                password: hashedPassword,
+                resetPasswordToken: null,
+                resetPasswordExpiry: null
+            }
+        });
     }
 }
 

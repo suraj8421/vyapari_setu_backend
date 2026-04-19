@@ -6,7 +6,7 @@ import express from 'express';
 import authController from '../controllers/authController.js';
 import { authenticate } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
-import { loginSchema, registerSchema, refreshTokenSchema } from '../validators/schemas.js';
+import { loginSchema, registerSchema, refreshTokenSchema, changePasswordSchema } from '../validators/schemas.js';
 
 const router = express.Router();
 
@@ -24,5 +24,12 @@ router.post('/logout', authenticate, authController.logout);
 
 // GET /api/auth/profile (requires auth)
 router.get('/profile', authenticate, authController.getProfile);
+
+// POST /api/auth/change-password (requires auth)
+router.post('/change-password', authenticate, validateBody(changePasswordSchema), authController.changePassword);
+
+// Public Password Reset Routes
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
 
 export default router;

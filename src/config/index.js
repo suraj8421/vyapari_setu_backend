@@ -33,9 +33,6 @@ const config = {
 
   // Bcrypt
   bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS, 10) || 12,
-
-  // Gemini
-  geminiKey: process.env.GEMINI_API_KEY,
 };
 
 // ── Security Guard ────────────────────────────────────────────────

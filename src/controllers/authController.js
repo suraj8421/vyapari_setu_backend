@@ -52,6 +52,35 @@ const authController = {
             next(err);
         }
     },
+
+    async changePassword(req, res, next) {
+        try {
+            await authService.changePassword(req.user.id, req.validatedBody);
+            return success(res, null, 'Password changed successfully');
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    async forgotPassword(req, res, next) {
+        try {
+            const { email } = req.body;
+            const result = await authService.forgotPassword(email);
+            return success(res, result, 'Reset instructions handled');
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    async resetPassword(req, res, next) {
+        try {
+            const { token, password } = req.body;
+            await authService.resetPassword(token, password);
+            return success(res, null, 'Password reset successfully');
+        } catch (err) {
+            next(err);
+        }
+    },
 };
 
 export default authController;

@@ -3,7 +3,7 @@
 // ============================================
 
 import purchaseService from '../services/purchaseService.js';
-import { success, paginated } from '../utils/response.js';
+import { success, paginated, error } from '../utils/response.js';
 
 const purchaseController = {
     async create(req, res, next) {
