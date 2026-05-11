@@ -1,0 +1,44 @@
+// ============================================
+// Product Routes
+// ============================================
+
+import express from 'express';
+import productController from '../controllers/productController.js';
+import { authenticate, authorize } from '../middleware/auth.js';
+import { validateBody } from '../middleware/validate.js';
+import { createProductSchema, updateProductSchema } from '../validators/schemas.js';
+
+const router = express.Router();
+
+router.use(authenticate);
+
+router.post('/match', productController.match);
+
+// GET /api/products/categories
+router.get('/categories', productController.getCategories);
+
+// GET /api/products/low-stock
+router.get('/low-stock', productController.getLowStock);
+
+// POST /api/products - Allow authenticated users (Staff & Admin)
+router.post('/', validateBody(createProductSchema), productController.create);
+
+// GET /api/products
+router.get('/', productController.getAll);
+
+// GET /api/products/:id
+router.get('/:id', productController.getById);
+
+// GET /api/products/:id/movement
+router.get('/:id/movement', productController.getMovementHistory);
+
+// PUT /api/products/:id - Allow authenticated users (Staff & Admin)
+router.put('/:id', validateBody(updateProductSchema), productController.update);
+
+// POST /api/products/:id/adjust - Quick stock update
+router.post('/:id/adjust', productController.adjustStock);
+
+// DELETE /api/products/:id - Admin only
+router.delete('/:id', authorize('ADMIN'), productController.delete);
+
+export default router;

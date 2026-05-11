@@ -1,0 +1,17 @@
+{
+  "verbose": true,
+  "ignore": [
+    "node_modules",
+    "prisma/dev.db*",
+    "**/logs/**",
+    "**/temp/**",
+    "**/uploads/**",
+    "**/*.test.js",
+    "**/*.spec.js",
+    "knowledge/**",
+    "brain/**",
+    ".gemini/**"
+  ],
+  "watch": ["src/"],
+  "ext": "js,json,prisma"
+}

@@ -1,0 +1,57 @@
+// ============================================
+// Vyaparisetu - Application Configuration
+// ============================================
+
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load from current directory or backend directory fallback
+dotenv.config(); 
+dotenv.config({ path: path.join(__dirname, '../../.env') });
+
+const config = {
+  // Server
+  port: parseInt(process.env.PORT, 10) || 5000,
+  nodeEnv: process.env.NODE_ENV || 'development',
+
+  // Database
+  databaseUrl: process.env.DATABASE_URL,
+
+  // JWT
+  jwt: {
+    accessSecret: process.env.JWT_ACCESS_SECRET || 'default-access-secret',
+    refreshSecret: process.env.JWT_REFRESH_SECRET || 'default-refresh-secret',
+    accessExpiry: process.env.JWT_ACCESS_EXPIRY || '1h',    // 15m was too short — increased to 1h
+    refreshExpiry: process.env.JWT_REFRESH_EXPIRY || '30d',  // 7d increased to 30d for better UX
+  },
+
+  // CORS
+  frontendUrl: (process.env.FRONTEND_URL || process.env.APP_URL || process.env.ALLOWED_ORIGIN || 'http://localhost:5176').replace(/\/$/, ''),
+
+  // Bcrypt
+  bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS, 10) || 12,
+};
+
+// ── Security Guard ────────────────────────────────────────────────
+// Prevent the server from starting in production with insecure defaults.
+// In development this is skipped so that first-time setup is easier.
+if (config.nodeEnv === 'production') {
+  const insecureDefaults = [
+    config.jwt.accessSecret === 'default-access-secret',
+    config.jwt.refreshSecret === 'default-refresh-secret',
+  ];
+  if (insecureDefaults.some(Boolean)) {
+    throw new Error(
+      '[FATAL] JWT secrets are not set. Set JWT_ACCESS_SECRET and JWT_REFRESH_SECRET environment variables before running in production.'
+    );
+  }
+  if (!config.databaseUrl) {
+    throw new Error('[FATAL] DATABASE_URL environment variable is not set.');
+  }
+}
+
+export default config;
+

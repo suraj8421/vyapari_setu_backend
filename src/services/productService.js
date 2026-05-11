@@ -1,0 +1,313 @@
+// ============================================
+// Product Service
+// ============================================
+
+import prisma from '../config/database.js';
+import { parsePagination, parseSort } from '../utils/helpers.js';
+
+class ProductService {
+    /**
+     * Create product with initial inventory
+     */
+    async create(data) {
+        const { initialStock, minStockLevel, maxStockLevel, batchNumber, expiryDate, location, ...productData } = data;
+
+        // Normalize empty strings to null for unique/optional fields
+        if (productData.barcode === '') productData.barcode = null;
+        if (productData.category === '') productData.category = null;
+        if (productData.hsnCode === '') productData.hsnCode = null;
+
+        return prisma.$transaction(async (tx) => {
+            const product = await tx.product.create({
+                data: productData,
+            });
+
+            // Create initial inventory record
+            if (initialStock > 0 || minStockLevel) {
+                await tx.inventory.create({
+                    data: {
+                        productId: product.id,
+                        storeId: productData.storeId,
+                        quantity: initialStock || 0,
+                        minStockLevel: minStockLevel || 10,
+                        maxStockLevel: maxStockLevel || null,
+                        batchNumber: batchNumber || null,
+                        expiryDate: expiryDate ? new Date(expiryDate) : null,
+                        location: location || null,
+                    },
+                });
+            }
+
+            return product;
+        });
+    }
+
+    /**
+     * Get all products with filters, search, pagination
+     */
+    async getAll(query = {}, storeId = null) {
+        const { skip, limit, page } = parsePagination(query);
+        const orderBy = parseSort(query, 'name', 'asc');
+
+        const where = {};
+        if (storeId) where.storeId = storeId;
+        if (query.storeId) where.storeId = query.storeId;
+        if (query.category) where.category = query.category;
+        if (query.isActive !== undefined) {
+            where.isActive = query.isActive === 'true';
+        } else {
+            where.isActive = true;
+        }
+
+        if (query.search) {
+            where.OR = [
+                { name: { contains: query.search, mode: 'insensitive' } },
+                { sku: { contains: query.search, mode: 'insensitive' } },
+                { barcode: { contains: query.search, mode: 'insensitive' } },
+            ];
+        }
+
+        const [products, total] = await Promise.all([
+            prisma.product.findMany({
+                where,
+                skip,
+                take: limit,
+                orderBy,
+                include: {
+                    inventory: {
+                        select: {
+                            id: true,
+                            quantity: true,
+                            minStockLevel: true,
+                            maxStockLevel: true,
+                            batchNumber: true,
+                            expiryDate: true,
+                            location: true,
+                        },
+                    },
+                    store: {
+                        select: { id: true, name: true },
+                    },
+                },
+            }),
+            prisma.product.count({ where }),
+        ]);
+
+        return { products, pagination: { page, limit, total } };
+    }
+
+    /**
+     * Get product by ID
+     */
+    async getById(id) {
+        const product = await prisma.product.findUnique({
+            where: { id },
+            include: {
+                inventory: true,
+                store: { select: { id: true, name: true } },
+            },
+        });
+
+        if (!product) {
+            throw { statusCode: 404, message: 'Product not found' };
+        }
+
+        return product;
+    }
+
+    /**
+     * Update product
+     */
+    async update(id, data) {
+        const { initialStock, minStockLevel, maxStockLevel, batchNumber, expiryDate, location, ...productData } = data;
+
+        // Normalize empty strings to null for unique/optional fields
+        if (productData.barcode === '') productData.barcode = null;
+        if (productData.category === '') productData.category = null;
+        if (productData.hsnCode === '') productData.hsnCode = null;
+
+        return prisma.$transaction(async (tx) => {
+            const product = await tx.product.update({
+                where: { id },
+                data: productData,
+                include: {
+                    inventory: true,
+                },
+            });
+
+            // Update minStockLevel if provided
+            if (minStockLevel !== undefined) {
+                await tx.inventory.updateMany({
+                    where: { productId: id },
+                    data: { minStockLevel: Number(minStockLevel) },
+                });
+            }
+
+            return product;
+        });
+    }
+
+    /**
+     * Soft delete product
+     */
+    async delete(id) {
+        return prisma.product.update({
+            where: { id },
+            data: { isActive: false },
+        });
+    }
+
+    /**
+     * Get all unique categories
+     */
+    async getCategories(storeId = null) {
+        const where = { isActive: true };
+        if (storeId) where.storeId = storeId;
+
+        const categories = await prisma.product.findMany({
+            where,
+            select: { category: true },
+            distinct: ['category'],
+            orderBy: { category: 'asc' },
+        });
+
+        return categories
+            .map((p) => p.category)
+            .filter(Boolean);
+    }
+
+    /**
+     * Get low stock products with reorder suggestions
+     */
+    async getLowStock(storeId = null) {
+        const where = {
+            product: { isActive: true },
+        };
+        if (storeId) where.storeId = storeId;
+
+        const lowStockItems = await prisma.inventory.findMany({
+            where,
+            include: {
+                product: {
+                    select: { id: true, name: true, sku: true, category: true, unit: true },
+                },
+                store: {
+                    select: { id: true, name: true },
+                },
+            },
+            orderBy: { quantity: 'asc' },
+        });
+
+        // Filter and add reorder logic in application layer
+        return lowStockItems
+            .filter((item) => item.quantity <= item.minStockLevel)
+            .map((item) => {
+                // Calculation logic for "Order X more":
+                // 1. If maxStockLevel is defined, we aim to fill up to that level.
+                // 2. Otherwise, we aim for a target of double the minimum stock level (with a base minimum of 20).
+                let suggestion = 0;
+                if (item.maxStockLevel && item.maxStockLevel > item.quantity) {
+                    suggestion = item.maxStockLevel - item.quantity;
+                } else {
+                    const target = Math.max(item.minStockLevel * 2, 20);
+                    suggestion = Math.max(0, target - item.quantity);
+                }
+
+                return {
+                    ...item,
+                    reorderSuggestion: suggestion,
+                };
+            });
+    }
+
+    /**
+     * Get chronological inventory movement history for a product
+     */
+    async getMovementHistory(id) {
+        const [sales, purchases] = await Promise.all([
+            prisma.saleItem.findMany({
+                where: { productId: id },
+                include: {
+                    sale: {
+                        select: { invoiceNumber: true, createdAt: true, status: true, customer: { select: { name: true } } }
+                    }
+                }
+            }),
+            prisma.purchaseItem.findMany({
+                where: { productId: id },
+                include: {
+                    purchase: {
+                        select: { invoiceNumber: true, createdAt: true, status: true, supplier: { select: { name: true } } }
+                    }
+                }
+            })
+        ]);
+
+        const history = [];
+
+        sales.forEach(s => {
+            if (s.sale && s.sale.status !== 'CANCELLED') {
+                const isReturn = s.sale.status === 'RETURNED' || s.sale.status === 'PARTIAL_RETURN';
+                history.push({
+                    id: `sale-${s.id}`,
+                    date: s.sale.createdAt,
+                    type: isReturn ? 'STOCK_RESTORE' : 'STOCK_OUT',
+                    quantity: isReturn ? s.quantity : -s.quantity,
+                    reference: s.sale.invoiceNumber || 'Sale',
+                    party: s.sale.customer?.name || 'Walk-in Customer',
+                    rawStatus: s.sale.status
+                });
+            }
+        });
+
+        purchases.forEach(p => {
+            if (p.purchase && p.purchase.status !== 'CANCELLED') {
+                history.push({
+                    id: `purch-${p.id}`,
+                    date: p.purchase.createdAt,
+                    type: 'STOCK_IN',
+                    quantity: p.quantity,
+                    reference: p.purchase.invoiceNumber || 'Purchase',
+                    party: p.purchase.supplier?.name || 'Supplier',
+                    rawStatus: p.purchase.status
+                });
+            }
+        });
+
+        // Sort completely descending by date
+        history.sort((a, b) => new Date(b.date) - new Date(a.date));
+        return history;
+    }
+
+    /**
+     * Manual Stock Adjustment (Quick Restock)
+     */
+    async adjustStock(id, data) {
+        const { quantity, type, reference, storeId } = data; // type: 'ADD' | 'SUBTRACT'
+        const adjustment = type === 'SUBTRACT' ? -Math.abs(quantity) : Math.abs(quantity);
+
+        return prisma.$transaction(async (tx) => {
+            const existingInventory = await tx.inventory.findFirst({
+                where: { productId: id, storeId }
+            });
+
+            if (!existingInventory) {
+                return tx.inventory.create({
+                    data: {
+                        productId: id,
+                        storeId,
+                        quantity: adjustment,
+                        minStockLevel: 10
+                    }
+                });
+            }
+
+            return tx.inventory.update({
+                where: { id: existingInventory.id },
+                data: { quantity: { increment: adjustment } }
+            });
+        });
+    }
+}
+
+export default new ProductService();
