@@ -37,14 +37,14 @@ const saDashboardController = {
                 convertedLeads,
                 rangePayments
             ] = await Promise.all([
-                prisma.user.count({ where: { role: { not: 'SUPERADMIN' }, createdAt: { gte: startDate } } }).catch(() => 0),
-                prisma.employee.count({ where: { createdAt: { gte: startDate } } }).catch(() => 0),
-                prisma.clientSubscription.count({ where: { status: 'ACTIVE', createdAt: { gte: startDate } } }).catch(() => 0),
+                prisma.user.count({ where: { isDeleted: false } }).catch(() => 0),
+                prisma.employee.count({ where: { isDeleted: false } }).catch(() => 0),
+                prisma.clientSubscription.count({ where: { status: 'ACTIVE' } }).catch(() => 0),
                 prisma.clientSubscription.count({
-                    where: { endDate: { lt: now }, status: 'ACTIVE', createdAt: { gte: startDate } }
+                    where: { endDate: { lt: now }, status: 'ACTIVE' }
                 }).catch(() => 0),
                 prisma.systemPayment.count({
-                    where: { method: 'CASH', status: 'PENDING', createdAt: { gte: startDate } }
+                    where: { method: 'CASH', status: 'PENDING' }
                 }).catch(() => 0),
                 prisma.lead.count({ where: { createdAt: { gte: startDate } } }).catch(() => 0),
                 prisma.lead.count({ where: { status: 'CONVERTED', createdAt: { gte: startDate } } }).catch(() => 0),
@@ -54,7 +54,7 @@ const saDashboardController = {
                 }).catch(() => [])
             ]);
 
-            const revenue = (rangePayments || []).reduce((acc, p) => acc + Number(p.amount || 0), 0);
+            const revenue = (rangePayments || []).reduce((acc, p) => acc + Number(p.amount || 0), 0) / 100;
 
             const stats = {
                 totalUsers: { value: totalUsers, trend: '+0%' },
@@ -101,7 +101,7 @@ const saDashboardController = {
                     month: monthName,
                     new: newSubs,
                     renewals: renewals,
-                    rev: (monthlyPayments || []).reduce((acc, p) => acc + Number(p.amount || 0), 0).toLocaleString('en-IN')
+                    rev: ((monthlyPayments || []).reduce((acc, p) => acc + Number(p.amount || 0), 0) / 100).toLocaleString('en-IN')
                 });
             }
 
