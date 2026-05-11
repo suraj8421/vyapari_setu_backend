@@ -21,8 +21,7 @@ export const getDashboardAnalytics = async (req, res, next) => {
         const employeeSales = {};
 
         users.forEach(u => {
-            // Renewal check - find the latest subscription by end date
-            const sortedSubs = [...u.clientSubscriptions].sort((a,b) => b.endDate - a.endDate);
+            const sortedSubs = [...u.clientSubscriptions].sort((a,b) => new Date(b.endDate) - new Date(a.endDate));
             const latestSub = sortedSubs[0];
             
             if (latestSub && latestSub.endDate > new Date() && latestSub.endDate <= sevenDaysFromNow) {
@@ -31,13 +30,12 @@ export const getDashboardAnalytics = async (req, res, next) => {
 
             u.systemPayments.forEach(p => {
                 if (p.status === 'SUCCESS') {
-                    const amt = parseFloat(p.amount);
+                    const amt = parseFloat(p.amount) / 100;
                     totalRevenue += amt;
                     if (new Date(p.createdAt) >= startOfMonth) {
                         monthlyRevenue += amt;
                     }
 
-                    // Track per employee if assigned
                     if (u.assignedAgentId) {
                         const empName = u.assignedAgent?.name || 'Unknown';
                         employeeSales[empName] = (employeeSales[empName] || 0) + amt;
@@ -71,7 +69,6 @@ export const getDashboardAnalytics = async (req, res, next) => {
 
         res.json({ success: true, data: dashboardData });
     } catch (error) { 
-        console.error('Analytics error:', error);
         next(error); 
     }
 };
@@ -112,7 +109,7 @@ export const getAllUsers = async (req, res, next) => {
 
         const mappedUsers = users.map(u => {
             const currentSub = u.clientSubscriptions[0];
-            const totalPayments = u.systemPayments.reduce((acc, p) => acc + parseFloat(p.amount), 0);
+            const totalPayments = u.systemPayments.reduce((acc, p) => acc + parseFloat(p.amount), 0) / 100;
             return {
                 ...u,
                 totalPayments,
@@ -121,7 +118,32 @@ export const getAllUsers = async (req, res, next) => {
             };
         });
 
-        res.json({ success: true, data: mappedUsers, pagination: { total, page, limit } });
+        // Calculate quick summary analytics
+        const allUsers = await prisma.user.findMany({ 
+            where: { isDeleted: false }, 
+            include: { clientSubscriptions: true, systemPayments: true } 
+        });
+        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        let monthlyRevenue = 0;
+        allUsers.forEach(u => {
+            u.systemPayments.forEach(p => {
+                if (p.status === 'SUCCESS' && new Date(p.createdAt) >= startOfMonth) {
+                    monthlyRevenue += parseFloat(p.amount) / 100;
+                }
+            });
+        });
+
+        const analytics = {
+            totalUsers: allUsers.length,
+            activeUsers: allUsers.filter(u => u.platformStatus === 'ACTIVE').length,
+            monthlyRevenue: Math.round(monthlyRevenue),
+            renewalDueUsers: allUsers.filter(u => u.clientSubscriptions.some(s => {
+                const days = (new Date(s.endDate) - new Date()) / (1000 * 60 * 60 * 24);
+                return s.status === 'ACTIVE' && days <= 7;
+            })).length
+        };
+
+        res.json({ success: true, data: mappedUsers, analytics, pagination: { total, page: parseInt(page), limit: parseInt(limit) } });
     } catch (error) { next(error); }
 };
 
@@ -152,7 +174,7 @@ export const createUser = async (req, res, next) => {
         const existing = await prisma.user.findFirst({ where: { email } });
         if (existing) return res.status(400).json({ success: false, message: 'Email already registered.' });
 
-        const hashedPassword = await bcrypt.hash(password || 'Vyapari@123', 10);
+        const hashedPassword = await bcrypt.hash(password || phone, 10);
         let storeId = null;
 
         if (storeDetails && storeDetails.name) {
@@ -187,8 +209,8 @@ export const createUser = async (req, res, next) => {
                 // Record initial manual payment
                 await prisma.systemPayment.create({
                     data: {
-                        amount: plan.price,
-                        method: 'CASH',
+                        amount: amountReceived ? Math.round(parseFloat(amountReceived) * 100) : plan.price,
+                        method: paymentMethod || 'CASH',
                         status: 'SUCCESS',
                         userId: user.id,
                         subscriptionId: sub.id,
@@ -243,11 +265,37 @@ export const softDeleteUser = async (req, res, next) => {
     } catch (error) { next(error); }
 };
 
+export const getAllPayments = async (req, res, next) => {
+    try {
+        const payments = await prisma.systemPayment.findMany({
+            include: {
+                user: { select: { firstName: true, lastName: true, store: true } },
+                subscription: { include: { plan: true } }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        console.log(`[SA-Finance] Retrieved ${payments.length} payment records`);
+        res.json({ success: true, data: payments });
+    } catch (error) { next(error); }
+};
+
 export const hardDeleteUser = async (req, res, next) => {
     try {
-        await prisma.user.delete({ where: { id: req.params.id } });
-        res.json({ success: true, message: 'User permanently deleted' });
-    } catch (error) { next(error); }
+        const { id } = req.params;
+
+        // Perform a cascading delete via transaction
+        await prisma.$transaction([
+            prisma.systemPayment.deleteMany({ where: { userId: id } }),
+            prisma.clientSubscription.deleteMany({ where: { userId: id } }),
+            prisma.storeNotification.deleteMany({ where: { userId: id } }),
+            prisma.user.delete({ where: { id } })
+        ]);
+
+        res.json({ success: true, message: 'User and all associated data permanently deleted' });
+    } catch (error) { 
+        console.error('Hard delete error:', error);
+        res.status(500).json({ success: false, message: 'Failed to permanently delete user. They may have active sales or ledger records that prevent deletion.' });
+    }
 };
 
 export const addPayment = async (req, res, next) => {
@@ -259,7 +307,7 @@ export const addPayment = async (req, res, next) => {
 
         const payment = await prisma.systemPayment.create({
             data: {
-                amount,
+                amount: Math.round(parseFloat(amount) * 100),
                 method,
                 status: 'SUCCESS',
                 userId,
@@ -346,7 +394,7 @@ export const exportPayments = async (req, res, next) => {
         });
 
         const csv = 'Date,Client,Store,Amount,Method,PaymentID\n' + 
-            payments.map(p => `"${p.createdAt.toLocaleDateString()}","${p.user.firstName} ${p.user.lastName}","${p.user.store?.name || ''}","${p.amount}","${p.method}","${p.paymentId || 'MANUAL_PAY'}"`).join('\n');
+            payments.map(p => `"${p.createdAt.toLocaleDateString()}","${p.user.firstName} ${p.user.lastName}","${p.user.store?.name || ''}","${(parseFloat(p.amount) / 100).toFixed(2)}","${p.method}","${p.paymentId || 'MANUAL_PAY'}"`).join('\n');
 
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', 'attachment; filename=payments_export.csv');
@@ -365,7 +413,7 @@ export const exportSubscriptions = async (req, res, next) => {
         });
 
         const csv = 'Client,Store,Plan,Price,StartDate,EndDate,Status\n' +
-            subs.map(s => `"${s.user.firstName} ${s.user.lastName}","${s.user.store?.name || ''}","${s.plan.name}","${s.plan.price}","${s.startDate.toLocaleDateString()}","${s.endDate.toLocaleDateString()}","${s.status}"`).join('\n');
+            subs.map(s => `"${s.user.firstName} ${s.user.lastName}","${s.user.store?.name || ''}","${s.plan.name}","${(parseFloat(s.plan.price) / 100).toFixed(2)}","${s.startDate.toLocaleDateString()}","${s.endDate.toLocaleDateString()}","${s.status}"`).join('\n');
 
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', 'attachment; filename=subscriptions_export.csv');
