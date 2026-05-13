@@ -42,7 +42,14 @@ export const createStoreSchema = z.object({
     state: z.string().optional(),
     pincode: z.string().optional(),
     phone: z.string().optional(),
+    email: z.string().email().optional().or(z.literal('')),
     gstNumber: z.string().optional(),
+    bankName: z.string().optional(),
+    accountHolderName: z.string().optional(),
+    accountNumber: z.string().optional(),
+    ifscCode: z.string().optional(),
+    branchName: z.string().optional(),
+    upiId: z.string().optional(),
 });
 
 export const updateStoreSchema = createStoreSchema.partial();

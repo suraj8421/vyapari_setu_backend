@@ -167,7 +167,7 @@ export const createUser = async (req, res, next) => {
     try {
         const { 
             firstName, lastName, phone, email, password, 
-            platformStatus, notes, assignedAgentId, role = 'STORE_USER', 
+            platformStatus, notes, assignedAgentId, role = 'ADMIN', 
             storeDetails, planId, paymentMethod = 'CASH', amountReceived 
         } = req.body;
         
