@@ -52,7 +52,14 @@ model Store {
   state                 String?
   pincode               String?
   phone                 String?
+  email                 String?
   gstNumber             String?                @map("gst_number")
+  bankName              String?                @map("bank_name")
+  accountHolderName     String?                @map("account_holder_name")
+  accountNumber         String?                @map("account_number")
+  ifscCode              String?                @map("ifsc_code")
+  branchName            String?                @map("branch_name")
+  upiId                 String?                @map("upi_id")
   isActive              Boolean                @default(true) @map("is_active")
   createdAt             DateTime               @default(now()) @map("created_at")
   updatedAt             DateTime               @updatedAt @map("updated_at")

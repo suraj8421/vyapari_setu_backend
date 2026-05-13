@@ -51,7 +51,7 @@ export const getAllEmployees = async (req, res, next) => {
                     if (u.clientSubscriptions) {
                         u.clientSubscriptions.forEach(sub => {
                             if (sub.plan && sub.plan.price) {
-                                totalSales += parseFloat(sub.plan.price);
+                                totalSales += parseFloat(sub.plan.price) / 100;
                             }
                         });
                     }
