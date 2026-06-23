@@ -5,6 +5,7 @@
 import prisma from '../config/database.js';
 import { parsePagination } from '../utils/helpers.js';
 import creditScoreService from './creditScoreService.js';
+import { AppError } from '../utils/AppError.js';
 
 class CustomerService {
     async create(data) {
@@ -15,8 +16,11 @@ class CustomerService {
         const { skip, limit, page } = parsePagination(query);
 
         const where = {};
-        if (storeId) where.storeId = storeId;
-        if (query.storeId) where.storeId = query.storeId;
+        if (storeId) {
+            where.storeId = storeId;
+        } else if (query.storeId) {
+            where.storeId = query.storeId;
+        }
         if (query.isActive !== undefined) where.isActive = query.isActive === 'true';
 
         if (query.search) {
@@ -66,7 +70,7 @@ class CustomerService {
         });
 
         if (!customer) {
-            throw { statusCode: 404, message: 'Customer not found' };
+            throw new AppError('Customer not found', 404);
         }
 
         return customer;
@@ -94,8 +98,10 @@ class CustomerService {
         // If customerId is 'all', target all customers (optionally in a store)
         if (customerId !== 'all') {
             where.customerId = customerId;
-        } else if (storeId || query.storeId) {
-            where.customer = { storeId: storeId || query.storeId };
+        } else if (storeId) {
+            where.customer = { storeId };
+        } else if (query.storeId) {
+            where.customer = { storeId: query.storeId };
         }
 
         if (query.type) where.type = query.type;
@@ -134,7 +140,7 @@ class CustomerService {
             });
 
             if (!customer) {
-                throw { statusCode: 404, message: 'Customer not found' };
+                throw new AppError('Customer not found', 404);
             }
 
             const newBalance = Number(customer.balance) - data.amount;

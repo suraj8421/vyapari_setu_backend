@@ -8,12 +8,16 @@ import config from '../config/index.js';
 import { parsePagination } from '../utils/helpers.js';
 
 class UserService {
-    async getAll(query = {}) {
+    async getAll(query = {}, storeId = null) {
         const { skip, limit, page } = parsePagination(query);
 
         const where = {};
+        if (storeId) {
+            where.storeId = storeId;
+        } else if (query.storeId) {
+            where.storeId = query.storeId;
+        }
         if (query.role) where.role = query.role;
-        if (query.storeId) where.storeId = query.storeId;
         if (query.isActive !== undefined) where.isActive = query.isActive === 'true';
 
         if (query.search) {

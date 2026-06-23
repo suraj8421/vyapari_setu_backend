@@ -15,12 +15,10 @@ class TransactionService {
         const { type, options = {} } = data;
 
         // FIX: Security — storeId must come exclusively from the authenticated user
-        // for store-level users. A STORE_USER was previously able to pass any storeId
-        // in the request body and it would be used directly if user.storeId was null.
-        // Now STORE_USERs are always locked to their assigned store.
-        const storeId = user.role === 'ADMIN'
-            ? (user.storeId || data.storeId)  // Admins may specify any store
-            : user.storeId;                    // STORE_USERs locked to their own store
+        // for store-level users and admins. Only SUPERADMIN can specify any storeId.
+        const storeId = user.role === 'SUPERADMIN'
+            ? (data.storeId || user.storeId)  // Super Admins may specify any store
+            : user.storeId;                   // Admins and STORE_USERs locked to their own store
 
         if (!storeId) {
             throw new AppError('No store assigned. Cannot create transaction.', 400);
@@ -276,7 +274,7 @@ class TransactionService {
             data: {
                 invoiceNumber: data.invoiceNumber || generateInvoiceNumber('PUR'),
                 storeId: data.storeId,
-                supplierId: supplierId,
+                supplierId: (supplierId && supplierId.trim() !== '') ? supplierId : null,
                 createdById: user.id,
                 subtotal,
                 taxAmount: totalTax,
@@ -453,7 +451,7 @@ class TransactionService {
      * ADMIN → Updates the data directly and logs as 'APPROVED'.
      */
     async update(type, id, data, user) {
-        const isAdmin = user.role === 'ADMIN';
+        const isAdmin = user.role === 'ADMIN' || user.role === 'SUPERADMIN';
         const model = type.toLowerCase();
 
         // Validate that the model name is one of our known allowed types
@@ -470,6 +468,10 @@ class TransactionService {
         });
 
         if (!original) throw new AppError(`${type} not found`, 404);
+
+        if (user.role !== 'SUPERADMIN' && original.storeId !== user.storeId) {
+            throw new AppError('Access denied. Insufficient permissions.', 403);
+        }
 
         if (!isAdmin) {
             // Staff: Create a request for approval — original record is NOT touched
@@ -526,9 +528,17 @@ class TransactionService {
      * to dismiss bad edit requests.
      */
     async rejectUpdate(logId, adminId, notes = '') {
-        const log = await prisma.auditLog.findUnique({ where: { id: logId } });
+        const log = await prisma.auditLog.findUnique({
+            where: { id: logId },
+            include: { changedBy: { select: { storeId: true } } }
+        });
         if (!log || log.status !== 'PENDING') {
             throw new AppError('Log not found or already processed', 400);
+        }
+
+        const admin = await prisma.user.findUnique({ where: { id: adminId } });
+        if (admin.role !== 'SUPERADMIN' && log.changedBy?.storeId !== admin.storeId) {
+            throw new AppError('Access denied. Insufficient permissions.', 403);
         }
 
         return prisma.auditLog.update({
@@ -592,12 +602,27 @@ class TransactionService {
      */
     async approveUpdate(logId, adminId) {
         return prisma.$transaction(async (tx) => {
-            const log = await tx.auditLog.findUnique({ where: { id: logId } });
+            const log = await tx.auditLog.findUnique({
+                where: { id: logId },
+                include: { changedBy: { select: { storeId: true } } }
+            });
             if (!log || log.status !== 'PENDING') {
                 throw new AppError('Invalid or already processed log', 400);
             }
+            const admin = await tx.user.findUnique({ where: { id: adminId } });
+            if (admin.role !== 'SUPERADMIN' && log.changedBy?.storeId !== admin.storeId) {
+                throw new AppError('Access denied. Insufficient permissions.', 403);
+            }
 
             const model = log.entityType.toLowerCase();
+
+            // FIX: Fetch the original record BEFORE applying the update.
+            // Previously this fetch happened after the update, meaning `original.items`
+            // already held the new values and the inventory delta was always 0.
+            const original = await tx[model].findUnique({
+                where: { id: log.entityId },
+                include: (log.entityType === 'SALE' || log.entityType === 'PURCHASE') ? { items: true } : {}
+            });
 
             // Apply the approved new values to the actual record
             const updated = await tx[model].update({
@@ -605,21 +630,15 @@ class TransactionService {
                 data: this.formatUpdateData(log.entityType, log.newValue)
             });
 
-            // FIX: Reconcile inventory after an approved edit on SALE/PURCHASE
-            if ((log.entityType === 'SALE' || log.entityType === 'PURCHASE') && log.newValue?.items) {
-                const original = await tx[model].findUnique({
-                    where: { id: log.entityId },
-                    include: { items: true }
-                });
-                if (original) {
-                    await this.reconcileInventoryAfterEdit(
-                        log.entityType,
-                        JSON.parse(JSON.stringify(log.oldValue?.items || [])),
-                        log.newValue.items,
-                        original.storeId,
-                        tx
-                    );
-                }
+            // Reconcile inventory after an approved edit on SALE/PURCHASE
+            if ((log.entityType === 'SALE' || log.entityType === 'PURCHASE') && log.newValue?.items && original) {
+                await this.reconcileInventoryAfterEdit(
+                    log.entityType,
+                    JSON.parse(JSON.stringify(log.oldValue?.items || [])),
+                    log.newValue.items,
+                    original.storeId,
+                    tx
+                );
             }
 
             // Update log status
@@ -645,7 +664,20 @@ class TransactionService {
     /**
      * Get transaction history (Audit Logs)
      */
-    async getHistory(type, id) {
+    async getHistory(type, id, user) {
+        const model = type.toLowerCase();
+        const allowedModels = ['sale', 'purchase', 'expense'];
+        if (!allowedModels.includes(model)) {
+            throw new AppError(`Type not supported: ${type}`, 400);
+        }
+
+        const original = await prisma[model].findUnique({ where: { id } });
+        if (!original) throw new AppError(`${type} not found`, 404);
+
+        if (user.role !== 'SUPERADMIN' && original.storeId !== user.storeId) {
+            throw new AppError('Access denied. Insufficient permissions.', 403);
+        }
+
         return prisma.auditLog.findMany({
             where: { entityType: type, entityId: id },
             include: {
@@ -662,11 +694,15 @@ class TransactionService {
      * edits were awaiting their approval.
      */
     async getPendingApprovals(storeId = null) {
+        const where = {
+            status: 'PENDING',
+            action: 'UPDATE',
+        };
+        if (storeId) {
+            where.changedBy = { storeId };
+        }
         return prisma.auditLog.findMany({
-            where: {
-                status: 'PENDING',
-                action: 'UPDATE',
-            },
+            where,
             include: {
                 changedBy: { select: { id: true, firstName: true, lastName: true } },
             },

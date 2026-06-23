@@ -4,6 +4,7 @@
 
 import storeService from '../services/storeService.js';
 import { success, paginated } from '../utils/response.js';
+import { AppError } from '../utils/AppError.js';
 
 const storeController = {
     async create(req, res, next) {
@@ -17,7 +18,11 @@ const storeController = {
 
     async getAll(req, res, next) {
         try {
-            const { stores, pagination } = await storeService.getAll(req.query);
+            const query = { ...req.query };
+            if (req.user.role !== 'SUPERADMIN') {
+                query.id = req.user.storeId;
+            }
+            const { stores, pagination } = await storeService.getAll(query);
             return paginated(res, stores, pagination, 'Stores fetched');
         } catch (err) {
             next(err);
@@ -26,6 +31,9 @@ const storeController = {
 
     async getById(req, res, next) {
         try {
+            if (req.user.role !== 'SUPERADMIN' && req.params.id !== req.user.storeId) {
+                throw new AppError('Access denied. Insufficient permissions.', 403);
+            }
             const store = await storeService.getById(req.params.id);
             return success(res, store, 'Store fetched');
         } catch (err) {
@@ -35,6 +43,9 @@ const storeController = {
 
     async update(req, res, next) {
         try {
+            if (req.user.role !== 'SUPERADMIN' && req.params.id !== req.user.storeId) {
+                throw new AppError('Access denied. Insufficient permissions.', 403);
+            }
             const store = await storeService.update(req.params.id, req.validatedBody);
             return success(res, store, 'Store updated');
         } catch (err) {
@@ -44,6 +55,9 @@ const storeController = {
 
     async delete(req, res, next) {
         try {
+            if (req.user.role !== 'SUPERADMIN' && req.params.id !== req.user.storeId) {
+                throw new AppError('Access denied. Insufficient permissions.', 403);
+            }
             await storeService.delete(req.params.id);
             return success(res, null, 'Store deactivated');
         } catch (err) {

@@ -78,7 +78,8 @@ class SaleService {
                 }
 
                 // Calculate item totals
-                const itemSubtotal = item.unitPrice * item.quantity - (item.discount || 0);
+                const unitPrice = item.unitPrice !== undefined && item.unitPrice !== null ? Number(item.unitPrice) : 0;
+                const itemSubtotal = unitPrice * item.quantity - (item.discount || 0);
                 const gstRate = item.gstRate !== undefined ? Number(item.gstRate) : Number(product.gstRate);
                 const gstAmount = (itemSubtotal * gstRate) / 100;
                 const itemTotal = itemSubtotal + gstAmount;
@@ -89,7 +90,7 @@ class SaleService {
                 saleItems.push({
                     productId: item.productId,
                     quantity: item.quantity,
-                    unitPrice: item.unitPrice,
+                    unitPrice: unitPrice,
                     gstRate,
                     gstAmount,
                     discount: item.discount || 0,
@@ -217,8 +218,11 @@ class SaleService {
         const { skip, limit, page } = parsePagination(query);
 
         const where = {};
-        if (storeId) where.storeId = storeId;
-        if (query.storeId) where.storeId = query.storeId;
+        if (storeId) {
+            where.storeId = storeId;
+        } else if (query.storeId) {
+            where.storeId = query.storeId;
+        }
         if (query.customerId) where.customerId = query.customerId;
         if (query.status) where.status = query.status;
         if (query.paymentMethod) where.paymentMethod = query.paymentMethod;
@@ -231,7 +235,11 @@ class SaleService {
         }
 
         if (query.search) {
-            where.invoiceNumber = { contains: query.search, mode: 'insensitive' };
+            where.OR = [
+                { invoiceNumber: { contains: query.search, mode: 'insensitive' } },
+                { customer: { name: { contains: query.search, mode: 'insensitive' } } },
+                { customer: { phone: { contains: query.search, mode: 'insensitive' } } }
+            ];
         }
 
         const [sales, total] = await Promise.all([

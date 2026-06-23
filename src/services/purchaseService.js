@@ -26,8 +26,9 @@ class PurchaseService {
                     throw new AppError(`Product not found: ${item.productId}`, 404);
                 }
 
+                const unitPrice = item.unitPrice !== undefined && item.unitPrice !== null ? Number(item.unitPrice) : 0;
                 const gstRate = item.gstRate !== undefined ? Number(item.gstRate) : Number(product.gstRate);
-                const itemSubtotal = item.unitPrice * item.quantity;
+                const itemSubtotal = unitPrice * item.quantity;
                 const gstAmount = (itemSubtotal * gstRate) / 100;
                 const itemTotal = itemSubtotal + gstAmount;
 
@@ -37,7 +38,7 @@ class PurchaseService {
                 purchaseItems.push({
                     productId: item.productId,
                     quantity: item.quantity,
-                    unitPrice: item.unitPrice,
+                    unitPrice: unitPrice,
                     gstRate,
                     gstAmount,
                     total: itemTotal,
@@ -108,8 +109,11 @@ class PurchaseService {
         const { skip, limit, page } = parsePagination(query);
 
         const where = {};
-        if (storeId) where.storeId = storeId;
-        if (query.storeId) where.storeId = query.storeId;
+        if (storeId) {
+            where.storeId = storeId;
+        } else if (query.storeId) {
+            where.storeId = query.storeId;
+        }
         if (query.supplierId) where.supplierId = query.supplierId;
         if (query.status) where.status = query.status;
 

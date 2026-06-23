@@ -1,4 +1,5 @@
 import express from 'express';
+import { authenticate, authorize } from '../middleware/auth.js';
 import { 
     getAllEmployees, 
     getEmployeeById, 
@@ -11,6 +12,9 @@ import {
 } from '../controllers/employeeController.js';
 
 const router = express.Router();
+
+// Restrict CRM employees to SUPERADMIN only
+router.use(authenticate, authorize('SUPERADMIN'));
 
 router.get('/export', exportEmployees);
 router.get('/', getAllEmployees);

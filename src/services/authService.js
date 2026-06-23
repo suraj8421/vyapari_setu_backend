@@ -95,7 +95,7 @@ class AuthService {
                     await tx.systemPayment.create({
                         data: {
                             userId: user.id,
-                            amount: plan.price,
+                            amount: Math.round(Number(plan.price) * 100),
                             status: 'SUCCESS', // Marking as success for onboarding simplicity
                             method: 'OFFLINE',
                             subscriptionId: sub.id,

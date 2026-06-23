@@ -58,25 +58,25 @@ export const updateStoreSchema = createStoreSchema.partial();
 
 export const createProductSchema = z.object({
     name: z.string().min(1, 'Product name is required').max(200),
-    description: z.string().optional(),
-    sku: z.string().min(1, 'SKU is required'),
-    barcode: z.string().optional(),
-    category: z.string().optional(),
-    unit: z.enum(['PCS', 'BOX', 'KG', 'LTR', 'BAG', 'SET', 'PACK', 'DOZEN']).default('PCS'),
-    unitsPerBox: z.number().int().positive().optional(),
-    allowLooseSale: z.boolean().default(true),
-    costPrice: z.number().positive('Cost price must be positive'),
-    sellingPrice: z.number().positive('Selling price must be positive'),
-    gstRate: z.number().min(0).max(100).default(0),
-    hsnCode: z.string().optional(),
+    description: z.string().optional().or(z.literal('')).or(z.null()),
+    sku: z.string().max(100).optional().or(z.literal('')).or(z.null()),
+    barcode: z.string().optional().or(z.literal('')).or(z.null()),
+    category: z.string().optional().or(z.literal('')).or(z.null()),
+    unit: z.enum(['PCS', 'BOX', 'KG', 'LTR', 'BAG', 'SET', 'PACK', 'DOZEN', 'TONS', 'CUSTOM']).default('PCS').optional().or(z.literal('')).or(z.null()),
+    unitsPerBox: z.number().int().positive().optional().or(z.literal('')).or(z.null()),
+    allowLooseSale: z.boolean().default(true).optional().or(z.null()),
+    costPrice: z.number().min(0, 'Cost price must be zero or positive').optional().or(z.literal('')).or(z.null()),
+    sellingPrice: z.number().min(0, 'Selling price must be zero or positive').optional().or(z.literal('')).or(z.null()),
+    gstRate: z.number().min(0).max(100).default(0).optional().or(z.literal('')).or(z.null()),
+    hsnCode: z.string().optional().or(z.literal('')).or(z.null()),
     storeId: z.string().uuid('Valid store ID required'),
     // Inventory fields
-    initialStock: z.number().int().min(0).default(0),
-    minStockLevel: z.number().int().min(0).default(10),
-    maxStockLevel: z.number().int().min(0).optional(),
-    batchNumber: z.string().optional(),
-    expiryDate: z.string().datetime().optional(),
-    location: z.string().optional(),
+    initialStock: z.number().int().min(0).default(0).optional().or(z.literal('')).or(z.null()),
+    minStockLevel: z.number().int().min(0).default(10).optional().or(z.literal('')).or(z.null()),
+    maxStockLevel: z.number().int().min(0).optional().or(z.literal('')).or(z.null()),
+    batchNumber: z.string().optional().or(z.literal('')).or(z.null()),
+    expiryDate: z.string().datetime().optional().or(z.literal('')).or(z.null()),
+    location: z.string().optional().or(z.literal('')).or(z.null()),
 });
 
 export const updateProductSchema = createProductSchema.partial().omit({ storeId: true });
@@ -113,9 +113,9 @@ export const updateSupplierSchema = createSupplierSchema.partial().omit({ storeI
 const saleItemSchema = z.object({
     productId: z.string().uuid(),
     quantity: z.number().int().positive('Quantity must be positive').optional(), // Optional if boxes is used
-    unitPrice: z.number().positive('Unit price must be positive'),
+    unitPrice: z.number().min(0, 'Unit price must be zero or positive').default(0).optional().or(z.null()).or(z.literal('')),
     discount: z.number().min(0).default(0),
-    unit: z.enum(['PCS', 'BOX', 'KG', 'LTR', 'BAG', 'SET', 'PACK', 'DOZEN']).optional(),
+    unit: z.enum(['PCS', 'BOX', 'KG', 'LTR', 'BAG', 'SET', 'PACK', 'DOZEN', 'TONS', 'CUSTOM']).optional(),
     boxes: z.number().int().positive().optional(),
     gstRate: z.number().min(0).max(100).optional(),
     discountAmount: z.number().min(0).optional(),
@@ -143,14 +143,14 @@ export const createSaleSchema = z.object({
 const purchaseItemSchema = z.object({
     productId: z.string().uuid(),
     quantity: z.number().int().positive(),
-    unitPrice: z.number().positive(),
+    unitPrice: z.number().min(0, 'Unit price must be zero or positive').default(0).optional().or(z.null()).or(z.literal('')),
     // FIX: gstRate was also missing from the purchase item schema
     gstRate: z.number().min(0).max(100).default(0),
 });
 
 export const createPurchaseSchema = z.object({
     storeId: z.string().uuid(),
-    supplierId: z.string().uuid(),
+    supplierId: z.string().uuid().optional().or(z.literal('')).or(z.null()),
     invoiceNumber: z.string().optional(),
     items: z.array(purchaseItemSchema).min(1, 'At least one item is required'),
     notes: z.string().optional(),

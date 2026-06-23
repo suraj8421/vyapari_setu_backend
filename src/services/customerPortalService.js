@@ -35,6 +35,7 @@ class CustomerPortalService {
         // Find the underlying Customer record by phone (must exist first in the business system)
         const customer = await prisma.customer.findFirst({
             where: { phone, isWalkIn: false },
+            include: { customerAccount: true }, // needed for the duplicate-account check below
         });
 
         if (!customer) {

@@ -55,9 +55,10 @@ class DashboardService {
                 _count: true,
             }),
             // Today's Payments Received (Actual Cash/UPI/Bank)
+            // FIX: ledgerEntry has no direct storeId column; filter through the customer relation.
             prisma.ledgerEntry.aggregate({
                 where: {
-                    ...storeFilter,
+                    ...(storeId ? { customer: { storeId } } : {}),
                     type: 'DEBIT',
                     createdAt: { gte: today, lt: tomorrow },
                 },
@@ -67,7 +68,7 @@ class DashboardService {
             // Month's Payments Received
             prisma.ledgerEntry.aggregate({
                 where: {
-                    ...storeFilter,
+                    ...(storeId ? { customer: { storeId } } : {}),
                     type: 'DEBIT',
                     createdAt: { gte: monthStart, lt: monthEnd },
                 },

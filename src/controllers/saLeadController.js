@@ -60,7 +60,7 @@ export const createLead = async (req, res, next) => {
                 assignedToId: assignedToId === "" ? null : assignedToId 
             }
         });
-        req.app.locals.io.emit('leads_updated'); // Notify for real-time sidebar refresh
+        req.app.locals.io?.emit('leads_updated'); // Notify for real-time sidebar refresh
         res.status(201).json({ success: true, data: lead });
     } catch (error) { next(error); }
 };
@@ -80,7 +80,7 @@ export const updateLead = async (req, res, next) => {
                 assignedToId: assignedToId === "" ? null : assignedToId 
             }
         });
-        req.app.locals.io.emit('leads_updated'); // Notify for real-time sidebar refresh
+        req.app.locals.io?.emit('leads_updated'); // Notify for real-time sidebar refresh
         res.json({ success: true, data: lead });
     } catch (error) { next(error); }
 };
