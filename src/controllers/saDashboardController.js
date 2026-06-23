@@ -41,7 +41,12 @@ const saDashboardController = {
                 prisma.employee.count({ where: { isDeleted: false } }).catch(() => 0),
                 prisma.clientSubscription.count({ where: { status: 'ACTIVE' } }).catch(() => 0),
                 prisma.clientSubscription.count({
-                    where: { endDate: { lt: now }, status: 'ACTIVE' }
+                    where: {
+                        OR: [
+                            { status: 'INACTIVE' },
+                            { status: 'ACTIVE', endDate: { lt: now } }
+                        ]
+                    }
                 }).catch(() => 0),
                 prisma.systemPayment.count({
                     where: { method: 'CASH', status: 'PENDING' }

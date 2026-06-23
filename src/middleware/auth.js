@@ -93,12 +93,12 @@ export function authorize(...roles) {
  * Ensures users can only access data from their assigned store
  */
 export function storeScope(req, res, next) {
-    if (req.user.role === 'ADMIN' || req.user.role === 'SUPERADMIN') {
-        // Admins can access all stores
+    if (req.user.role === 'SUPERADMIN') {
+        // Super Admins can access all stores
         return next();
     }
 
-    // Store users are scoped to their store
+    // Store users and regular admins are scoped to their store
     if (!req.user.storeId) {
         return error(res, 'No store assigned to this user.', 403);
     }
@@ -106,6 +106,12 @@ export function storeScope(req, res, next) {
     // Override any storeId in params/query/body with user's store
     if (req.params.storeId) {
         req.params.storeId = req.user.storeId;
+    }
+    if (req.query.storeId) {
+        req.query.storeId = req.user.storeId;
+    }
+    if (req.body.storeId) {
+        req.body.storeId = req.user.storeId;
     }
 
     req.storeId = req.user.storeId;

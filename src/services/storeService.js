@@ -15,6 +15,9 @@ class StoreService {
         const orderBy = parseSort(query);
 
         const where = {};
+        if (query.id) {
+            where.id = query.id;
+        }
         if (query.search) {
             where.OR = [
                 { name: { contains: query.search, mode: 'insensitive' } },

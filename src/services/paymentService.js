@@ -144,7 +144,7 @@ class PaymentService {
                     description: `Online Payment (Ref: ${razorpayPaymentId})`,
                     reference: razorpayPaymentId,
                     balanceAfter: newBalance,
-                    recordedById: 'SYSTEM_AUTOMATION' // Placeholder or system user
+                    recordedById: null // System-automated payment (no human actor)
                 }
             });
 

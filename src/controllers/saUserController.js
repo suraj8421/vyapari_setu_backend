@@ -118,29 +118,41 @@ export const getAllUsers = async (req, res, next) => {
             };
         });
 
-        // Calculate quick summary analytics
-        const allUsers = await prisma.user.findMany({ 
-            where: { isDeleted: false }, 
-            include: { clientSubscriptions: true, systemPayments: true } 
-        });
+        // Calculate quick summary analytics using optimized database operations
         const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-        let monthlyRevenue = 0;
-        allUsers.forEach(u => {
-            u.systemPayments.forEach(p => {
-                if (p.status === 'SUCCESS' && new Date(p.createdAt) >= startOfMonth) {
-                    monthlyRevenue += parseFloat(p.amount) / 100;
+        const next7Days = new Date();
+        next7Days.setDate(next7Days.getDate() + 7);
+
+        const [
+            totalUsers,
+            activeUsers,
+            revenueAggregate,
+            renewalDueUsers
+        ] = await Promise.all([
+            prisma.user.count({ where: { isDeleted: false } }),
+            prisma.user.count({ where: { isDeleted: false, platformStatus: 'ACTIVE' } }),
+            prisma.systemPayment.aggregate({
+                where: { status: 'SUCCESS', createdAt: { gte: startOfMonth } },
+                _sum: { amount: true }
+            }),
+            prisma.user.count({
+                where: {
+                    isDeleted: false,
+                    clientSubscriptions: {
+                        some: {
+                            status: 'ACTIVE',
+                            endDate: { lte: next7Days }
+                        }
+                    }
                 }
-            });
-        });
+            })
+        ]);
 
         const analytics = {
-            totalUsers: allUsers.length,
-            activeUsers: allUsers.filter(u => u.platformStatus === 'ACTIVE').length,
-            monthlyRevenue: Math.round(monthlyRevenue),
-            renewalDueUsers: allUsers.filter(u => u.clientSubscriptions.some(s => {
-                const days = (new Date(s.endDate) - new Date()) / (1000 * 60 * 60 * 24);
-                return s.status === 'ACTIVE' && days <= 7;
-            })).length
+            totalUsers,
+            activeUsers,
+            monthlyRevenue: Math.round(Number(revenueAggregate._sum.amount || 0) / 100),
+            renewalDueUsers
         };
 
         res.json({ success: true, data: mappedUsers, analytics, pagination: { total, page: parseInt(page), limit: parseInt(limit) } });
@@ -209,7 +221,7 @@ export const createUser = async (req, res, next) => {
                 // Record initial manual payment
                 await prisma.systemPayment.create({
                     data: {
-                        amount: amountReceived ? Math.round(parseFloat(amountReceived) * 100) : plan.price,
+                        amount: amountReceived ? Math.round(parseFloat(amountReceived) * 100) : Math.round(Number(plan.price) * 100),
                         method: paymentMethod || 'CASH',
                         status: 'SUCCESS',
                         userId: user.id,
@@ -283,18 +295,227 @@ export const hardDeleteUser = async (req, res, next) => {
     try {
         const { id } = req.params;
 
-        // Perform a cascading delete via transaction
-        await prisma.$transaction([
-            prisma.systemPayment.deleteMany({ where: { userId: id } }),
-            prisma.clientSubscription.deleteMany({ where: { userId: id } }),
-            prisma.storeNotification.deleteMany({ where: { userId: id } }),
-            prisma.user.delete({ where: { id } })
-        ]);
+        // Fetch user to obtain storeId
+        const user = await prisma.user.findUnique({
+            where: { id }
+        });
 
-        res.json({ success: true, message: 'User and all associated data permanently deleted' });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        const storeId = user.storeId;
+
+        if (storeId) {
+            // Get all user IDs in this store to clean up their personal subscriptions/payments/notifications
+            const storeUsers = await prisma.user.findMany({
+                where: { storeId },
+                select: { id: true }
+            });
+            const userIds = storeUsers.map(u => u.id);
+
+            // Execute cascading deletes inside a single transaction
+            await prisma.$transaction(async (tx) => {
+                // Delete B2B Store Message records referencing store invoices
+                await tx.storeMessage.deleteMany({
+                    where: {
+                        invoice: {
+                            OR: [
+                                { sellerStoreId: storeId },
+                                { buyerStoreId: storeId }
+                            ]
+                        }
+                    }
+                });
+
+                // Delete B2B Store Invoice items referencing store invoices
+                await tx.storeInvoiceItem.deleteMany({
+                    where: {
+                        invoice: {
+                            OR: [
+                                { sellerStoreId: storeId },
+                                { buyerStoreId: storeId }
+                            ]
+                        }
+                    }
+                });
+
+                // Delete B2B Store Invoices
+                await tx.storeInvoice.deleteMany({
+                    where: {
+                        OR: [
+                            { sellerStoreId: storeId },
+                            { buyerStoreId: storeId }
+                        ]
+                    }
+                });
+
+                // Delete B2B Store Connections
+                await tx.storeConnection.deleteMany({
+                    where: {
+                        OR: [
+                            { supplierStoreId: storeId },
+                            { buyerStoreId: storeId }
+                        ]
+                    }
+                });
+
+                // Delete Approval Notifications
+                await tx.approvalNotification.deleteMany({
+                    where: { storeId }
+                });
+
+                // Delete Audit Logs for all store users
+                await tx.auditLog.deleteMany({
+                    where: {
+                        OR: [
+                            { changedById: { in: userIds } },
+                            { approvedById: { in: userIds } }
+                        ]
+                    }
+                });
+
+                // Delete Store Notifications for all store users
+                await tx.storeNotification.deleteMany({
+                    where: {
+                        userId: { in: userIds }
+                    }
+                });
+
+                // Delete System Payments (subscriptions history) for all store users
+                await tx.systemPayment.deleteMany({
+                    where: {
+                        userId: { in: userIds }
+                    }
+                });
+
+                // Delete Client Subscriptions for all store users
+                await tx.clientSubscription.deleteMany({
+                    where: {
+                        userId: { in: userIds }
+                    }
+                });
+
+                // Delete Customer Notifications (Sale notifications)
+                await tx.customerNotification.deleteMany({
+                    where: {
+                        sale: { storeId }
+                    }
+                });
+
+                // Delete Customer Accounts (Customer portal accounts)
+                await tx.customerAccount.deleteMany({
+                    where: {
+                        customer: { storeId }
+                    }
+                });
+
+                // Delete Online Payments (Customer gateway payments)
+                await tx.onlinePayment.deleteMany({
+                    where: {
+                        customer: { storeId }
+                    }
+                });
+
+                // Delete Ledger Entries (recorded payments/credits)
+                await tx.ledgerEntry.deleteMany({
+                    where: {
+                        OR: [
+                            { store_id: storeId },
+                            { customer: { storeId } },
+                            { recordedById: { in: userIds } }
+                        ]
+                    }
+                });
+
+                // Delete Sale Payments
+                await tx.salePayment.deleteMany({
+                    where: {
+                        sale: { storeId }
+                    }
+                });
+
+                // Delete Sale Items
+                await tx.saleItem.deleteMany({
+                    where: {
+                        sale: { storeId }
+                    }
+                });
+
+                // Delete Sales
+                await tx.sale.deleteMany({
+                    where: { storeId }
+                });
+
+                // Delete Purchase Items
+                await tx.purchaseItem.deleteMany({
+                    where: {
+                        purchase: { storeId }
+                    }
+                });
+
+                // Delete Purchases
+                await tx.purchase.deleteMany({
+                    where: { storeId }
+                });
+
+                // Delete Expenses
+                await tx.expense.deleteMany({
+                    where: { storeId }
+                });
+
+                // Delete Inventory
+                await tx.inventory.deleteMany({
+                    where: { storeId }
+                });
+
+                // Delete Products
+                await tx.product.deleteMany({
+                    where: { storeId }
+                });
+
+                // Delete Customers
+                await tx.customer.deleteMany({
+                    where: { storeId }
+                });
+
+                // Delete Suppliers
+                await tx.supplier.deleteMany({
+                    where: { storeId }
+                });
+
+                // Delete all Users of this store
+                await tx.user.deleteMany({
+                    where: { storeId }
+                });
+
+                // Finally delete the Store itself
+                await tx.store.delete({
+                    where: { id: storeId }
+                });
+            });
+        } else {
+            // Delete only this user's records if no store is linked
+            await prisma.$transaction(async (tx) => {
+                await tx.storeNotification.deleteMany({ where: { userId: id } });
+                await tx.systemPayment.deleteMany({ where: { userId: id } });
+                await tx.clientSubscription.deleteMany({ where: { userId: id } });
+                await tx.auditLog.deleteMany({
+                    where: {
+                        OR: [
+                            { changedById: id },
+                            { approvedById: id }
+                        ]
+                    }
+                });
+                await tx.user.delete({ where: { id } });
+            });
+        }
+
+        res.json({ success: true, message: 'User and all associated store data permanently deleted' });
     } catch (error) { 
         console.error('Hard delete error:', error);
-        res.status(500).json({ success: false, message: 'Failed to permanently delete user. They may have active sales or ledger records that prevent deletion.' });
+        res.status(500).json({ success: false, message: 'Failed to permanently delete user. ' + (error.message || '') });
     }
 };
 

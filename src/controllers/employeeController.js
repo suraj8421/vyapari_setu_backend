@@ -129,10 +129,42 @@ export const createEmployee = async (req, res, next) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
         
-        // Generate a random code or sequential
-        const count = await prisma.employee.count();
         const statePrefix = (state || 'HQ').substring(0, 2).toUpperCase();
-        const code = `EMP-${statePrefix}-${String(count + 1).padStart(3, '0')}`;
+        // Find the last employee with the same statePrefix to derive starting index
+        const lastEmp = await prisma.employee.findFirst({
+            where: {
+                code: {
+                    startsWith: `EMP-${statePrefix}-`
+                }
+            },
+            orderBy: {
+                code: 'desc'
+            }
+        });
+        
+        let nextNum = 1;
+        if (lastEmp && lastEmp.code) {
+            const parts = lastEmp.code.split('-');
+            const lastNum = parseInt(parts[parts.length - 1], 10);
+            if (!isNaN(lastNum)) {
+                nextNum = lastNum + 1;
+            }
+        }
+        
+        let code;
+        let isUnique = false;
+        let attempts = 0;
+        let suffixNum = nextNum;
+        while (!isUnique && attempts < 20) {
+            code = `EMP-${statePrefix}-${String(suffixNum).padStart(3, '0')}`;
+            const duplicate = await prisma.employee.findUnique({ where: { code } });
+            if (!duplicate) {
+                isUnique = true;
+            } else {
+                suffixNum++;
+                attempts++;
+            }
+        }
 
         const newEmployee = await prisma.employee.create({
             data: {

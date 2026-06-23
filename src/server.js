@@ -2,7 +2,6 @@ import http from 'http';
 import app, { initSocket } from './app.js';
 import config from './config/index.js';
 import b2bCronService from './services/b2bCronService.js';
-import './worker/smartscanWorker.js'; // SmartScan BullMQ worker (in-process)
 
 const PORT = config.port || 5000;
 const server = http.createServer(app);

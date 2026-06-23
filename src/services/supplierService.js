@@ -14,8 +14,11 @@ class SupplierService {
         const { skip, limit, page } = parsePagination(query);
 
         const where = {};
-        if (storeId) where.storeId = storeId;
-        if (query.storeId) where.storeId = query.storeId;
+        if (storeId) {
+            where.storeId = storeId;
+        } else if (query.storeId) {
+            where.storeId = query.storeId;
+        }
         if (query.isActive !== undefined) where.isActive = query.isActive === 'true';
 
         if (query.search) {

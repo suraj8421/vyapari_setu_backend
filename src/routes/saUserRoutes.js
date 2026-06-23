@@ -1,4 +1,5 @@
 import express from 'express';
+import { authenticate, authorize } from '../middleware/auth.js';
 import { 
     getDashboardAnalytics, getAllUsers, getUserById, createUser, 
     updateUser, changeUserStatus, softDeleteUser, hardDeleteUser, getAllPayments,
@@ -6,6 +7,9 @@ import {
 } from '../controllers/saUserController.js';
 
 const router = express.Router();
+
+// All SA user routes require a valid SUPERADMIN token
+router.use(authenticate, authorize('SUPERADMIN'));
 
 router.get('/stats/summary', getDashboardAnalytics);
 router.get('/export', exportUsers);
@@ -25,3 +29,4 @@ router.post('/subscriptions/assign', assignSubscription);
 router.get('/subscriptions/export', exportSubscriptions);
 
 export default router;
+

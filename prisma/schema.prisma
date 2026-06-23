@@ -52,17 +52,17 @@ model Store {
   state                 String?
   pincode               String?
   phone                 String?
-  email                 String?
   gstNumber             String?                @map("gst_number")
-  bankName              String?                @map("bank_name")
-  accountHolderName     String?                @map("account_holder_name")
-  accountNumber         String?                @map("account_number")
-  ifscCode              String?                @map("ifsc_code")
-  branchName            String?                @map("branch_name")
-  upiId                 String?                @map("upi_id")
   isActive              Boolean                @default(true) @map("is_active")
   createdAt             DateTime               @default(now()) @map("created_at")
   updatedAt             DateTime               @updatedAt @map("updated_at")
+  accountHolderName     String?                @map("account_holder_name")
+  accountNumber         String?                @map("account_number")
+  bankName              String?                @map("bank_name")
+  branchName            String?                @map("branch_name")
+  email                 String?
+  ifscCode              String?                @map("ifsc_code")
+  upiId                 String?                @map("upi_id")
   approvalNotifications ApprovalNotification[]
   customers             Customer[]
   expenses              Expense[]
@@ -307,14 +307,14 @@ model Purchase {
   subCategory          String?        @map("sub_category")
   isApproved           Boolean        @default(true) @map("is_approved")
   storeId              String         @map("store_id")
-  supplierId           String         @map("supplier_id")
+  supplierId           String?        @map("supplier_id")
   createdById          String         @map("created_by_id")
   createdAt            DateTime       @default(now()) @map("created_at")
   updatedAt            DateTime       @updatedAt @map("updated_at")
   items                PurchaseItem[]
   createdBy            User           @relation(fields: [createdById], references: [id])
   store                Store          @relation(fields: [storeId], references: [id])
-  supplier             Supplier       @relation(fields: [supplierId], references: [id])
+  supplier             Supplier?      @relation(fields: [supplierId], references: [id])
 
   @@index([storeId])
   @@index([supplierId])

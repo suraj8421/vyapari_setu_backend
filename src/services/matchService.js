@@ -99,7 +99,7 @@ const matchService = {
                 ...item,
                 exists: !!matchedProduct,
                 productId: matchedProduct ? matchedProduct.id : null,
-                hsn_exists: hsn ? dbProducts.some(p => p.hsnCode === hsn) : true, // if no hsn provided, we don't warn
+                hsn_exists: hsn ? dbProducts.some(p => p.hsnCode === hsn) : true,
                 matchedProduct: matchedProduct || null
             });
         }

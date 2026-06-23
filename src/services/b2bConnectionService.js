@@ -97,9 +97,14 @@ class B2bConnectionService {
         const connection = await prisma.storeConnection.findUnique({ where: { id: connectionId } });
         if (!connection) throw new AppError("Connection not found", 404);
 
-        // Only the receiving end should accept. If storeId requested it, they shouldn't auto-accept.
-        // Wait, any of the two can accept if it's PENDING? Generally the one who requested shouldn't.
-        // For simplicity, just check it involves the store
+        // Only the RECEIVING party (the one who did NOT initiate the request) may accept.
+        // The store that initiated the request is stored in `requestedById`.
+        // If requestedById is not set (older records), fall back to allowing either party.
+        if (connection.requestedById && connection.requestedById === storeId) {
+            throw new AppError("You cannot accept your own connection request", 403);
+        }
+
+        // Verify the accepting store is actually part of this connection
         if (connection.supplierStoreId !== storeId && connection.buyerStoreId !== storeId) {
             throw new AppError("Unauthorized to accept this connection", 403);
         }

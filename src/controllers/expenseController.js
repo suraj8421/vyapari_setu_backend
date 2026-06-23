@@ -8,6 +8,7 @@
 import prisma from '../config/database.js';
 import { success, paginated } from '../utils/response.js';
 import { parsePagination } from '../utils/helpers.js';
+import { AppError } from '../utils/AppError.js';
 
 const expenseController = {
     /**
@@ -15,7 +16,7 @@ const expenseController = {
      */
     async getAll(req, res, next) {
         try {
-            const storeId = req.user.role === 'STORE_USER' ? req.user.storeId : req.query.storeId || null;
+            const storeId = req.user.role === 'SUPERADMIN' ? (req.query.storeId || null) : req.user.storeId;
             const { skip, limit, page } = parsePagination(req.query);
 
             const where = {};
@@ -74,6 +75,9 @@ const expenseController = {
                 },
             });
             if (!expense) return res.status(404).json({ success: false, message: 'Expense not found' });
+            if (req.user.role !== 'SUPERADMIN' && expense.storeId !== req.user.storeId) {
+                throw new AppError('Access denied. Insufficient permissions.', 403);
+            }
             return success(res, expense, 'Expense fetched');
         } catch (err) {
             next(err);
@@ -85,7 +89,7 @@ const expenseController = {
      */
     async getCategories(req, res, next) {
         try {
-            const storeId = req.user.role === 'STORE_USER' ? req.user.storeId : null;
+            const storeId = req.user.role === 'SUPERADMIN' ? (req.query.storeId || null) : req.user.storeId;
             const where = storeId ? { storeId } : {};
             const rows = await prisma.expense.findMany({
                 where,

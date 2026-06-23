@@ -58,7 +58,7 @@ class TransactionController {
     async getHistory(req, res) {
         try {
             const { type, id } = req.params;
-            const logs = await transactionService.getHistory(type, id);
+            const logs = await transactionService.getHistory(type, id, req.user);
             res.status(200).json({ success: true, data: logs });
         } catch (error) {
             res.status(error.statusCode || 500).json({ success: false, message: error.message });
@@ -107,7 +107,7 @@ class TransactionController {
      */
     async getPendingApprovals(req, res) {
         try {
-            const storeId = req.user.role === 'STORE_USER' ? req.user.storeId : req.query.storeId || null;
+            const storeId = req.user.role === 'SUPERADMIN' ? (req.query.storeId || null) : req.user.storeId;
             const list = await transactionService.getPendingApprovals(storeId);
             res.status(200).json({ success: true, data: list });
         } catch (error) {

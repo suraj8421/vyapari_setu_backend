@@ -185,6 +185,14 @@ class B2bInvoiceService {
                     where: { storeId: invoice.sellerStoreId, productId: item.productId }
                 });
                 if (inv) {
+                    // Guard: ensure the seller actually has enough stock before deducting
+                    if (inv.quantity < item.quantity) {
+                        throw new AppError(
+                            `Insufficient stock for product ${item.product?.name || item.productId}. ` +
+                            `Available: ${inv.quantity}, Required: ${item.quantity}`,
+                            400
+                        );
+                    }
                     await tx.inventory.update({
                         where: { id: inv.id },
                         data: { quantity: { decrement: item.quantity } }
